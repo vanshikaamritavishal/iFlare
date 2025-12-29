@@ -136,6 +136,8 @@ const generateSampleFlares = () => {
 }
 
 export default function FlaresPage() {
+  const router = useRouter()
+  const [currentUser, setCurrentUser] = useState(DEFAULT_USER)
   const [flares, setFlares] = useState([])
   const [filteredFlares, setFilteredFlares] = useState([])
   const [activeFilter, setActiveFilter] = useState('all')
@@ -143,6 +145,19 @@ export default function FlaresPage() {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [selectedFlare, setSelectedFlare] = useState(null)
   const [currentTime, setCurrentTime] = useState(new Date())
+
+  // Load user from localStorage
+  useEffect(() => {
+    const storedUser = localStorage.getItem('iflare_user')
+    if (storedUser) {
+      try {
+        const userData = JSON.parse(storedUser)
+        setCurrentUser(userData)
+      } catch (e) {
+        console.error('Error parsing user data')
+      }
+    }
+  }, [])
 
   // Initialize flares
   useEffect(() => {
