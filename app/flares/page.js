@@ -772,22 +772,28 @@ function CreateFlareModal({ onClose, onCreated }) {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-sm text-slate-400 mb-2 block">Date</label>
-                  <Input
-                    type="date"
-                    value={formData.date}
-                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                    min={new Date().toISOString().split('T')[0]}
-                    className="h-14 bg-slate-800/50 border-slate-700 rounded-xl text-white"
-                  />
+                  <div className="relative">
+                    <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white pointer-events-none z-10" />
+                    <Input
+                      type="date"
+                      value={formData.date}
+                      onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                      min={new Date().toISOString().split('T')[0]}
+                      className="h-14 pl-12 bg-slate-800/50 border-slate-700 rounded-xl text-white [&::-webkit-calendar-picker-indicator]:opacity-0"
+                    />
+                  </div>
                 </div>
                 <div>
                   <label className="text-sm text-slate-400 mb-2 block">Start Time</label>
-                  <Input
-                    type="time"
-                    value={formData.time}
-                    onChange={(e) => setFormData({ ...formData, time: e.target.value })}
-                    className="h-14 bg-slate-800/50 border-slate-700 rounded-xl text-white"
-                  />
+                  <div className="relative">
+                    <Clock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white pointer-events-none z-10" />
+                    <Input
+                      type="time"
+                      value={formData.time}
+                      onChange={(e) => setFormData({ ...formData, time: e.target.value })}
+                      className="h-14 pl-12 bg-slate-800/50 border-slate-700 rounded-xl text-white [&::-webkit-calendar-picker-indicator]:opacity-0"
+                    />
+                  </div>
                 </div>
               </div>
 
