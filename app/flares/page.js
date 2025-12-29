@@ -11,7 +11,8 @@ import {
 } from 'lucide-react'
 
 // Mock user data (would come from auth context in real app)
-const CURRENT_USER = {
+// Will be replaced with actual user data from localStorage
+const DEFAULT_USER = {
   id: 'user-1',
   name: 'John Doe',
   interests: ['sports', 'music', 'food', 'tech', 'wellness']
