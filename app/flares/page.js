@@ -774,12 +774,13 @@ function CreateFlareModal({ onClose, onCreated }) {
                   <label className="text-sm text-slate-400 mb-2 block">Date</label>
                   <div className="relative">
                     <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white pointer-events-none z-10" />
-                    <Input
+                    <input
                       type="date"
                       value={formData.date}
                       onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                       min={new Date().toISOString().split('T')[0]}
-                      className="h-14 pl-12 bg-slate-800/50 border-slate-700 rounded-xl text-white [&::-webkit-calendar-picker-indicator]:opacity-0"
+                      className="w-full h-14 pl-12 pr-4 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-orange-500 cursor-pointer"
+                      style={{ colorScheme: 'dark' }}
                     />
                   </div>
                 </div>
@@ -787,11 +788,12 @@ function CreateFlareModal({ onClose, onCreated }) {
                   <label className="text-sm text-slate-400 mb-2 block">Start Time</label>
                   <div className="relative">
                     <Clock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white pointer-events-none z-10" />
-                    <Input
+                    <input
                       type="time"
                       value={formData.time}
                       onChange={(e) => setFormData({ ...formData, time: e.target.value })}
-                      className="h-14 pl-12 bg-slate-800/50 border-slate-700 rounded-xl text-white [&::-webkit-calendar-picker-indicator]:opacity-0"
+                      className="w-full h-14 pl-12 pr-4 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-orange-500 cursor-pointer"
+                      style={{ colorScheme: 'dark' }}
                     />
                   </div>
                 </div>
