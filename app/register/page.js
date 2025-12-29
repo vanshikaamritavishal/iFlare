@@ -24,7 +24,7 @@ const INTEREST_CATEGORIES = [
 
 export default function RegisterPage() {
   const router = useRouter()
-  const [step, setStep] = useState(1) // Step 1: Basic info, Step 2: Interests, Step 3: Verification sent
+  const [step, setStep] = useState(1) // Step 1: Basic info, Step 2: Interests
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -86,32 +86,15 @@ export default function RegisterPage() {
         return
       }
       
-      // Move to verification sent step
-      setStep(3)
-      setIsLoading(false)
+      // Store user session and redirect to flares
+      localStorage.setItem('iflare_user', JSON.stringify(data.user))
+      localStorage.setItem('iflare_token', data.token)
+      
+      router.push('/flares')
     } catch (err) {
       setError('Something went wrong. Please try again.')
       setIsLoading(false)
     }
-  }
-
-  const handleResendVerification = async () => {
-    setIsLoading(true)
-    try {
-      const response = await fetch('/api/auth/resend-verification', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: formData.email })
-      })
-      
-      if (response.ok) {
-        setError('')
-        alert('Verification email sent!')
-      }
-    } catch (err) {
-      setError('Failed to resend verification email')
-    }
-    setIsLoading(false)
   }
 
   return (
@@ -121,8 +104,7 @@ export default function RegisterPage() {
         <button 
           onClick={() => {
             if (step === 1) router.push('/login')
-            else if (step === 2) setStep(1)
-            else router.push('/login')
+            else setStep(1)
           }}
           className="w-10 h-10 rounded-full bg-slate-800/50 flex items-center justify-center text-slate-400 hover:text-white transition-colors"
         >
@@ -138,14 +120,12 @@ export default function RegisterPage() {
       </div>
 
       {/* Progress indicator */}
-      {step < 3 && (
-        <div className="flex gap-2 mb-8">
-          <div className={`h-1 flex-1 rounded-full ${step >= 1 ? 'bg-orange-500' : 'bg-slate-700'}`} />
-          <div className={`h-1 flex-1 rounded-full ${step >= 2 ? 'bg-orange-500' : 'bg-slate-700'}`} />
-        </div>
-      )}
+      <div className="flex gap-2 mb-8">
+        <div className={`h-1 flex-1 rounded-full ${step >= 1 ? 'bg-orange-500' : 'bg-slate-700'}`} />
+        <div className={`h-1 flex-1 rounded-full ${step >= 2 ? 'bg-orange-500' : 'bg-slate-700'}`} />
+      </div>
 
-      {error && step < 3 && (
+      {error && (
         <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm">
           {error}
         </div>
@@ -272,46 +252,10 @@ export default function RegisterPage() {
         </div>
       )}
 
-      {step === 3 && (
-        /* Step 3: Verification Email Sent */
-        <div className="flex-1 flex flex-col items-center justify-center text-center">
-          <div className="w-20 h-20 bg-orange-500/20 rounded-full flex items-center justify-center mb-6">
-            <Mail className="w-10 h-10 text-orange-500" />
-          </div>
-          
-          <h1 className="text-2xl font-bold mb-3">Check your email</h1>
-          <p className="text-slate-400 mb-2">We've sent a verification link to</p>
-          <p className="text-orange-400 font-medium mb-6">{formData.email}</p>
-          
-          <p className="text-slate-500 text-sm mb-8 max-w-xs">
-            Click the link in the email to verify your account and start using iFLARE.
-          </p>
-          
-          <div className="w-full max-w-xs space-y-3">
-            <Button
-              onClick={() => router.push('/login')}
-              className="w-full h-14 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-semibold rounded-2xl"
-            >
-              Go to Login
-            </Button>
-            
-            <button
-              onClick={handleResendVerification}
-              disabled={isLoading}
-              className="w-full text-slate-400 hover:text-orange-400 text-sm transition-colors"
-            >
-              {isLoading ? 'Sending...' : "Didn't receive the email? Resend"}
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Footer */}
-      {step < 3 && (
-        <p className="text-center text-slate-600 text-xs mt-6">
-          By signing up, you agree to our Terms & Privacy Policy
-        </p>
-      )}
+      <p className="text-center text-slate-600 text-xs mt-6">
+        By signing up, you agree to our Terms & Privacy Policy
+      </p>
     </main>
   )
 }
