@@ -164,37 +164,32 @@ async function handleRoute(request, { params }) {
         ))
       }
 
-      // Generate verification token
-      const verificationToken = generateToken()
-      const tokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours
-
-      // Create user
+      // Create user (directly verified - no email verification for now)
       const user = {
         id: uuidv4(),
         name,
         email: email.toLowerCase(),
         password: hashPassword(password),
         interests,
-        isVerified: false,
-        verificationToken,
-        verificationTokenExpiry: tokenExpiry,
+        isVerified: true, // Auto-verified for testing
         createdAt: new Date(),
         updatedAt: new Date()
       }
 
       await db.collection('users').insertOne(user)
 
-      // Send verification email
-      const emailResult = await sendVerificationEmail(email, name, verificationToken)
-      
-      if (!emailResult.success) {
-        console.error('Failed to send verification email:', emailResult.error)
-        // Still return success - user can request resend
-      }
+      // Generate session token for auto-login
+      const sessionToken = generateSessionToken(user.id)
 
       return handleCORS(NextResponse.json({
-        message: 'Registration successful. Please check your email to verify your account.',
-        userId: user.id
+        message: 'Registration successful',
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          interests: user.interests
+        },
+        token: sessionToken
       }))
     }
 
