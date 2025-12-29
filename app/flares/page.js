@@ -248,7 +248,7 @@ export default function FlaresPage() {
       if (flare.id === flareId && flare.attendees.length < flare.maxAttendees) {
         return {
           ...flare,
-          attendees: [...flare.attendees, { id: CURRENT_USER.id, name: CURRENT_USER.name }]
+          attendees: [...flare.attendees, { id: currentUser.id, name: currentUser.name }]
         }
       }
       return flare
