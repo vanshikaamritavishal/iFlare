@@ -183,7 +183,7 @@ export default function FlaresPage() {
     let filtered = flares.filter(flare => {
       // Check if any of user's interests match any of flare's interests
       const hasMatchingInterest = flare.interests.some(interest => 
-        CURRENT_USER.interests.includes(interest)
+        currentUser.interests.includes(interest)
       )
       
       // Check if within 90-min window (start time is within next 90 mins)
