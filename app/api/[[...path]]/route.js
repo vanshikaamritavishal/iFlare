@@ -280,14 +280,6 @@ async function handleRoute(request, { params }) {
         ))
       }
 
-      // Check if verified
-      if (!user.isVerified) {
-        return handleCORS(NextResponse.json(
-          { error: 'Please verify your email before logging in' },
-          { status: 401 }
-        ))
-      }
-
       // Generate session token
       const sessionToken = generateSessionToken(user.id)
 
