@@ -620,7 +620,7 @@ function FlareDetailModal({ flare, onClose, onJoin, currentUser, timeInfo, getUr
 }
 
 // Create Flare Modal Component
-function CreateFlareModal({ onClose, onCreated }) {
+function CreateFlareModal({ onClose, onCreated, currentUser }) {
   const [step, setStep] = useState(1)
   const [formData, setFormData] = useState({
     title: '',
@@ -657,7 +657,7 @@ function CreateFlareModal({ onClose, onCreated }) {
       interests: formData.interests,
       location: formData.location,
       startTime: new Date(`${formData.date}T${formData.time}`).toISOString(),
-      host: { id: currentUser.id, name: currentUser.name },
+      host: { id: currentUser?.id || 'guest', name: currentUser?.name || 'Guest' },
       attendees: [],
       maxAttendees: formData.maxAttendees,
     }
