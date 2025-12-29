@@ -840,8 +840,7 @@ function CreateFlareModal({ onClose, onCreated }) {
               <div className="flex gap-3 mt-4">
                 <Button
                   onClick={() => setStep(1)}
-                  variant="outline"
-                  className="flex-1 h-14 border-slate-700 text-white rounded-2xl"
+                  className="flex-1 h-14 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-semibold rounded-2xl"
                 >
                   Back
                 </Button>
