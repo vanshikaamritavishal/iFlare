@@ -297,7 +297,7 @@ export default function FlaresPage() {
           >
             All
           </button>
-          {CURRENT_USER.interests.map(interest => (
+          {currentUser.interests.map(interest => (
             <button
               key={interest}
               onClick={() => setActiveFilter(interest)}
