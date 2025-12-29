@@ -389,6 +389,72 @@ async function handleRoute(request, { params }) {
       }
     }
 
+    // Update user interests
+    if (route === '/user/interests' && method === 'PUT') {
+      const body = await request.json()
+      const { userId, interests } = body
+
+      if (!userId || !interests) {
+        return handleCORS(NextResponse.json(
+          { error: 'User ID and interests are required' },
+          { status: 400 }
+        ))
+      }
+
+      if (!Array.isArray(interests) || interests.length < 3) {
+        return handleCORS(NextResponse.json(
+          { error: 'Please select at least 3 interests' },
+          { status: 400 }
+        ))
+      }
+
+      // Update user interests
+      const result = await db.collection('users').updateOne(
+        { id: userId },
+        { 
+          $set: { 
+            interests,
+            updatedAt: new Date()
+          }
+        }
+      )
+
+      if (result.matchedCount === 0) {
+        return handleCORS(NextResponse.json(
+          { error: 'User not found' },
+          { status: 404 }
+        ))
+      }
+
+      return handleCORS(NextResponse.json({
+        message: 'Interests updated successfully',
+        interests
+      }))
+    }
+
+    // Get user's joined flares
+    if (route.match(/^\/user\/[^/]+\/flares$/) && method === 'GET') {
+      const userId = path[1]
+
+      // Find all flares where user is host or attendee
+      const flares = await db.collection('flares')
+        .find({
+          $or: [
+            { 'host.id': userId },
+            { 'attendees.id': userId }
+          ]
+        })
+        .sort({ startTime: -1 })
+        .limit(50)
+        .toArray()
+
+      const cleanedFlares = flares.map(({ _id, ...rest }) => rest)
+
+      return handleCORS(NextResponse.json({
+        flares: cleanedFlares
+      }))
+    }
+
     // ==================== FLARE ROUTES ====================
 
     // Create flare
