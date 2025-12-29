@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Flame, ArrowRight, ArrowLeft, Check } from 'lucide-react'
@@ -22,6 +23,7 @@ const INTEREST_CATEGORIES = [
 ]
 
 export default function RegisterPage() {
+  const router = useRouter()
   const [step, setStep] = useState(1) // Step 1: Basic info, Step 2: Interests
   const [formData, setFormData] = useState({
     name: '',
@@ -59,20 +61,27 @@ export default function RegisterPage() {
     // TODO: API call to register user with interests (persona building)
     console.log('Registering with:', { ...formData, interests: selectedInterests })
     
-    // Simulate API call
+    // Store user data in localStorage for demo purposes
+    // In production, this would be handled by auth system
+    localStorage.setItem('iflare_user', JSON.stringify({
+      name: formData.name,
+      email: formData.email,
+      interests: selectedInterests
+    }))
+    
+    // Simulate API call then redirect to flares page
     setTimeout(() => {
       setIsLoading(false)
-      // Redirect to home or dashboard after registration
-      window.location.href = '/'
+      router.push('/flares')
     }, 1500)
   }
 
   return (
-    <main className="min-h-screen flex flex-col px-6 py-8">
+    <main className="min-h-screen flex flex-col px-6 py-8 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <button 
-          onClick={() => step === 1 ? window.location.href = '/' : setStep(1)}
+          onClick={() => step === 1 ? router.push('/') : setStep(1)}
           className="w-10 h-10 rounded-full bg-slate-800/50 flex items-center justify-center text-slate-400 hover:text-white transition-colors"
         >
           <ArrowLeft className="w-5 h-5" />

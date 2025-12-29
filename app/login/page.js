@@ -1,11 +1,13 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Flame, ArrowLeft, Eye, EyeOff } from 'lucide-react'
 
 export default function LoginPage() {
+  const router = useRouter()
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -22,20 +24,19 @@ export default function LoginPage() {
     // TODO: API call to login user
     console.log('Logging in with:', formData)
     
-    // Simulate API call
+    // Simulate API call then redirect to flares page
     setTimeout(() => {
       setIsLoading(false)
-      // Redirect to dashboard after login
-      window.location.href = '/'
+      router.push('/flares')
     }, 1500)
   }
 
   return (
-    <main className="min-h-screen flex flex-col px-6 py-8">
+    <main className="min-h-screen flex flex-col px-6 py-8 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
       {/* Header */}
       <div className="flex items-center justify-between mb-12">
         <button 
-          onClick={() => window.location.href = '/'}
+          onClick={() => router.push('/')}
           className="w-10 h-10 rounded-full bg-slate-800/50 flex items-center justify-center text-slate-400 hover:text-white transition-colors"
         >
           <ArrowLeft className="w-5 h-5" />
