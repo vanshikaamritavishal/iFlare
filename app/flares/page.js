@@ -395,7 +395,10 @@ export default function FlaresPage() {
             <Bell className="w-6 h-6" />
             <span className="text-xs">Activity</span>
           </button>
-          <button className="flex flex-col items-center gap-1 text-slate-500">
+          <button 
+            onClick={() => router.push('/profile')}
+            className="flex flex-col items-center gap-1 text-slate-500"
+          >
             <User className="w-6 h-6" />
             <span className="text-xs">Profile</span>
           </button>
