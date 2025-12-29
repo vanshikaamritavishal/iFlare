@@ -656,7 +656,7 @@ function CreateFlareModal({ onClose, onCreated }) {
       interests: formData.interests,
       location: formData.location,
       startTime: new Date(`${formData.date}T${formData.time}`).toISOString(),
-      host: { id: CURRENT_USER.id, name: CURRENT_USER.name },
+      host: { id: currentUser.id, name: currentUser.name },
       attendees: [],
       maxAttendees: formData.maxAttendees,
     }
