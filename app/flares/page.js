@@ -422,6 +422,7 @@ export default function FlaresPage() {
             setFlares(prev => [newFlare, ...prev])
             setShowCreateModal(false)
           }}
+          currentUser={currentUser}
         />
       )}
     </main>
