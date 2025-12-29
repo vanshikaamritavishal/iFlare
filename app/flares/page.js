@@ -408,7 +408,7 @@ export default function FlaresPage() {
           flare={selectedFlare}
           onClose={() => setSelectedFlare(null)}
           onJoin={() => handleJoinFlare(selectedFlare.id)}
-          currentUser={CURRENT_USER}
+          currentUser={currentUser}
           timeInfo={getTimeInfo(selectedFlare.startTime)}
           getUrgencyStyles={getUrgencyStyles}
         />
