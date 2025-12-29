@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Flame, ArrowLeft, Eye, EyeOff } from 'lucide-react'
+import { Flame, ArrowLeft, Eye, EyeOff, Mail, Loader2 } from 'lucide-react'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -14,21 +14,42 @@ export default function LoginPage() {
   })
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState('')
 
   const handleInputChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value })
+    setError('')
   }
 
   const handleLogin = async () => {
     setIsLoading(true)
-    // TODO: API call to login user
-    console.log('Logging in with:', formData)
+    setError('')
     
-    // Simulate API call then redirect to flares page
-    setTimeout(() => {
-      setIsLoading(false)
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      })
+      
+      const data = await response.json()
+      
+      if (!response.ok) {
+        setError(data.error || 'Login failed')
+        setIsLoading(false)
+        return
+      }
+      
+      // Store user session
+      localStorage.setItem('iflare_user', JSON.stringify(data.user))
+      localStorage.setItem('iflare_token', data.token)
+      
+      // Redirect to flares page
       router.push('/flares')
-    }, 1500)
+    } catch (err) {
+      setError('Something went wrong. Please try again.')
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -47,7 +68,7 @@ export default function LoginPage() {
           <span className="font-bold text-lg">iFLARE</span>
         </div>
         
-        <div className="w-10" /> {/* Spacer */}
+        <div className="w-10" />
       </div>
 
       {/* Login Form */}
@@ -55,17 +76,26 @@ export default function LoginPage() {
         <h1 className="text-2xl font-bold mb-2">Welcome back</h1>
         <p className="text-slate-400 mb-8">Sign in to continue to iFLARE</p>
 
-        <div className="space-y-4 mb-8">
+        {error && (
+          <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm">
+            {error}
+          </div>
+        )}
+
+        <div className="space-y-4 mb-6">
           <div>
             <label className="text-sm text-slate-400 mb-2 block">Email</label>
-            <Input
-              name="email"
-              type="email"
-              value={formData.email}
-              onChange={handleInputChange}
-              placeholder="Enter your email"
-              className="h-14 bg-slate-800/50 border-slate-700 rounded-xl text-white placeholder:text-slate-500 focus:border-orange-500"
-            />
+            <div className="relative">
+              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
+              <Input
+                name="email"
+                type="email"
+                value={formData.email}
+                onChange={handleInputChange}
+                placeholder="Enter your email"
+                className="h-14 pl-12 bg-slate-800/50 border-slate-700 rounded-xl text-white placeholder:text-slate-500 focus:border-orange-500"
+              />
+            </div>
           </div>
           <div>
             <label className="text-sm text-slate-400 mb-2 block">Password</label>
@@ -101,7 +131,7 @@ export default function LoginPage() {
           >
             {isLoading ? (
               <span className="flex items-center gap-2">
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <Loader2 className="w-5 h-5 animate-spin" />
                 Signing in...
               </span>
             ) : (
@@ -110,8 +140,8 @@ export default function LoginPage() {
           </Button>
           
           <p className="text-center text-slate-500 text-sm mt-6">
-            Don't have an account?{' '}
-            <a href="/register" className="text-orange-400 hover:text-orange-300 transition-colors">
+            Still not registered?{' '}
+            <a href="/register" className="text-orange-400 hover:text-orange-300 transition-colors font-medium">
               Sign up
             </a>
           </p>

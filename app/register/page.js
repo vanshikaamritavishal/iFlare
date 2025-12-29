@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Flame, ArrowRight, ArrowLeft, Check } from 'lucide-react'
+import { Flame, ArrowRight, ArrowLeft, Check, Mail, User, Lock, Loader2 } from 'lucide-react'
 
 // Interest categories for building user persona
 const INTEREST_CATEGORIES = [
@@ -24,7 +24,7 @@ const INTEREST_CATEGORIES = [
 
 export default function RegisterPage() {
   const router = useRouter()
-  const [step, setStep] = useState(1) // Step 1: Basic info, Step 2: Interests
+  const [step, setStep] = useState(1) // Step 1: Basic info, Step 2: Interests, Step 3: Verification sent
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -32,9 +32,11 @@ export default function RegisterPage() {
   })
   const [selectedInterests, setSelectedInterests] = useState([])
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState('')
 
   const handleInputChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value })
+    setError('')
   }
 
   const toggleInterest = (interestId) => {
@@ -47,33 +49,69 @@ export default function RegisterPage() {
 
   const handleNextStep = () => {
     if (formData.name && formData.email && formData.password) {
+      if (formData.password.length < 6) {
+        setError('Password must be at least 6 characters')
+        return
+      }
       setStep(2)
     }
   }
 
   const handleRegister = async () => {
     if (selectedInterests.length < 3) {
-      alert('Please select at least 3 interests to build your persona')
+      setError('Please select at least 3 interests to build your persona')
       return
     }
     
     setIsLoading(true)
-    // TODO: API call to register user with interests (persona building)
-    console.log('Registering with:', { ...formData, interests: selectedInterests })
+    setError('')
     
-    // Store user data in localStorage for demo purposes
-    // In production, this would be handled by auth system
-    localStorage.setItem('iflare_user', JSON.stringify({
-      name: formData.name,
-      email: formData.email,
-      interests: selectedInterests
-    }))
-    
-    // Simulate API call then redirect to flares page
-    setTimeout(() => {
+    try {
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          password: formData.password,
+          interests: selectedInterests
+        })
+      })
+      
+      const data = await response.json()
+      
+      if (!response.ok) {
+        setError(data.error || 'Registration failed')
+        setIsLoading(false)
+        return
+      }
+      
+      // Move to verification sent step
+      setStep(3)
       setIsLoading(false)
-      router.push('/flares')
-    }, 1500)
+    } catch (err) {
+      setError('Something went wrong. Please try again.')
+      setIsLoading(false)
+    }
+  }
+
+  const handleResendVerification = async () => {
+    setIsLoading(true)
+    try {
+      const response = await fetch('/api/auth/resend-verification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: formData.email })
+      })
+      
+      if (response.ok) {
+        setError('')
+        alert('Verification email sent!')
+      }
+    } catch (err) {
+      setError('Failed to resend verification email')
+    }
+    setIsLoading(false)
   }
 
   return (
@@ -81,7 +119,11 @@ export default function RegisterPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <button 
-          onClick={() => step === 1 ? router.push('/') : setStep(1)}
+          onClick={() => {
+            if (step === 1) router.push('/login')
+            else if (step === 2) setStep(1)
+            else router.push('/login')
+          }}
           className="w-10 h-10 rounded-full bg-slate-800/50 flex items-center justify-center text-slate-400 hover:text-white transition-colors"
         >
           <ArrowLeft className="w-5 h-5" />
@@ -92,16 +134,24 @@ export default function RegisterPage() {
           <span className="font-bold text-lg">iFLARE</span>
         </div>
         
-        <div className="w-10" /> {/* Spacer */}
+        <div className="w-10" />
       </div>
 
       {/* Progress indicator */}
-      <div className="flex gap-2 mb-8">
-        <div className={`h-1 flex-1 rounded-full ${step >= 1 ? 'bg-orange-500' : 'bg-slate-700'}`} />
-        <div className={`h-1 flex-1 rounded-full ${step >= 2 ? 'bg-orange-500' : 'bg-slate-700'}`} />
-      </div>
+      {step < 3 && (
+        <div className="flex gap-2 mb-8">
+          <div className={`h-1 flex-1 rounded-full ${step >= 1 ? 'bg-orange-500' : 'bg-slate-700'}`} />
+          <div className={`h-1 flex-1 rounded-full ${step >= 2 ? 'bg-orange-500' : 'bg-slate-700'}`} />
+        </div>
+      )}
 
-      {step === 1 ? (
+      {error && step < 3 && (
+        <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm">
+          {error}
+        </div>
+      )}
+
+      {step === 1 && (
         /* Step 1: Basic Info */
         <div className="flex-1 flex flex-col">
           <h1 className="text-2xl font-bold mb-2">Create your account</h1>
@@ -110,35 +160,44 @@ export default function RegisterPage() {
           <div className="space-y-4 mb-8">
             <div>
               <label className="text-sm text-slate-400 mb-2 block">Full Name</label>
-              <Input
-                name="name"
-                value={formData.name}
-                onChange={handleInputChange}
-                placeholder="Enter your name"
-                className="h-14 bg-slate-800/50 border-slate-700 rounded-xl text-white placeholder:text-slate-500 focus:border-orange-500"
-              />
+              <div className="relative">
+                <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
+                <Input
+                  name="name"
+                  value={formData.name}
+                  onChange={handleInputChange}
+                  placeholder="Enter your name"
+                  className="h-14 pl-12 bg-slate-800/50 border-slate-700 rounded-xl text-white placeholder:text-slate-500 focus:border-orange-500"
+                />
+              </div>
             </div>
             <div>
               <label className="text-sm text-slate-400 mb-2 block">Email</label>
-              <Input
-                name="email"
-                type="email"
-                value={formData.email}
-                onChange={handleInputChange}
-                placeholder="Enter your email"
-                className="h-14 bg-slate-800/50 border-slate-700 rounded-xl text-white placeholder:text-slate-500 focus:border-orange-500"
-              />
+              <div className="relative">
+                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
+                <Input
+                  name="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  placeholder="Enter your email"
+                  className="h-14 pl-12 bg-slate-800/50 border-slate-700 rounded-xl text-white placeholder:text-slate-500 focus:border-orange-500"
+                />
+              </div>
             </div>
             <div>
               <label className="text-sm text-slate-400 mb-2 block">Password</label>
-              <Input
-                name="password"
-                type="password"
-                value={formData.password}
-                onChange={handleInputChange}
-                placeholder="Create a password"
-                className="h-14 bg-slate-800/50 border-slate-700 rounded-xl text-white placeholder:text-slate-500 focus:border-orange-500"
-              />
+              <div className="relative">
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
+                <Input
+                  name="password"
+                  type="password"
+                  value={formData.password}
+                  onChange={handleInputChange}
+                  placeholder="Create a password (min 6 characters)"
+                  className="h-14 pl-12 bg-slate-800/50 border-slate-700 rounded-xl text-white placeholder:text-slate-500 focus:border-orange-500"
+                />
+              </div>
             </div>
           </div>
 
@@ -151,16 +210,24 @@ export default function RegisterPage() {
               Continue
               <ArrowRight className="w-5 h-5 ml-2" />
             </Button>
+            
+            <p className="text-center text-slate-500 text-sm mt-6">
+              Already have an account?{' '}
+              <a href="/login" className="text-orange-400 hover:text-orange-300 transition-colors font-medium">
+                Sign in
+              </a>
+            </p>
           </div>
         </div>
-      ) : (
-        /* Step 2: Interests Selection (One-time persona building) */
+      )}
+
+      {step === 2 && (
+        /* Step 2: Interests Selection */
         <div className="flex-1 flex flex-col">
           <h1 className="text-2xl font-bold mb-2">What interests you?</h1>
           <p className="text-slate-400 mb-2">Select at least 3 interests to personalize your experience</p>
           <p className="text-orange-400 text-sm mb-6">✨ This builds your persona for better matches</p>
 
-          {/* Interest chips */}
           <div className="flex flex-wrap gap-3 mb-8">
             {INTEREST_CATEGORIES.map((interest) => (
               <button
@@ -191,7 +258,7 @@ export default function RegisterPage() {
             >
               {isLoading ? (
                 <span className="flex items-center gap-2">
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <Loader2 className="w-5 h-5 animate-spin" />
                   Creating account...
                 </span>
               ) : (
@@ -205,10 +272,46 @@ export default function RegisterPage() {
         </div>
       )}
 
+      {step === 3 && (
+        /* Step 3: Verification Email Sent */
+        <div className="flex-1 flex flex-col items-center justify-center text-center">
+          <div className="w-20 h-20 bg-orange-500/20 rounded-full flex items-center justify-center mb-6">
+            <Mail className="w-10 h-10 text-orange-500" />
+          </div>
+          
+          <h1 className="text-2xl font-bold mb-3">Check your email</h1>
+          <p className="text-slate-400 mb-2">We've sent a verification link to</p>
+          <p className="text-orange-400 font-medium mb-6">{formData.email}</p>
+          
+          <p className="text-slate-500 text-sm mb-8 max-w-xs">
+            Click the link in the email to verify your account and start using iFLARE.
+          </p>
+          
+          <div className="w-full max-w-xs space-y-3">
+            <Button
+              onClick={() => router.push('/login')}
+              className="w-full h-14 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-semibold rounded-2xl"
+            >
+              Go to Login
+            </Button>
+            
+            <button
+              onClick={handleResendVerification}
+              disabled={isLoading}
+              className="w-full text-slate-400 hover:text-orange-400 text-sm transition-colors"
+            >
+              {isLoading ? 'Sending...' : "Didn't receive the email? Resend"}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Footer */}
-      <p className="text-center text-slate-600 text-xs mt-6">
-        By signing up, you agree to our Terms & Privacy Policy
-      </p>
+      {step < 3 && (
+        <p className="text-center text-slate-600 text-xs mt-6">
+          By signing up, you agree to our Terms & Privacy Policy
+        </p>
+      )}
     </main>
   )
 }

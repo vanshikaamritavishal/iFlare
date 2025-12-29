@@ -1,10 +1,12 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Flame, Sparkles, Users, MapPin, ArrowRight } from 'lucide-react'
 
 export default function Home() {
+  const router = useRouter()
   const [isLoaded, setIsLoaded] = useState(false)
 
   useEffect(() => {
@@ -12,7 +14,7 @@ export default function Home() {
   }, [])
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center px-6 py-12">
+    <main className="min-h-screen flex flex-col items-center justify-center px-6 py-12 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
       {/* Logo and App Name */}
       <div className={`flex flex-col items-center transition-all duration-700 ${isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
         {/* Animated Flame Icon */}
@@ -57,22 +59,15 @@ export default function Home() {
         </div>
       </div>
 
-      {/* CTA Button */}
+      {/* CTA Button - Goes to Login */}
       <div className={`w-full max-w-xs transition-all duration-700 delay-400 ${isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
         <Button 
           className="w-full h-14 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-semibold text-lg rounded-2xl shadow-lg shadow-orange-500/20 transition-all hover:shadow-orange-500/30 hover:scale-[1.02]"
-          onClick={() => window.location.href = '/register'}
+          onClick={() => router.push('/login')}
         >
           Get Started
           <ArrowRight className="w-5 h-5 ml-2" />
         </Button>
-        
-        <p className="text-center text-slate-500 text-sm mt-4">
-          Already have an account?{' '}
-          <a href="/login" className="text-orange-400 hover:text-orange-300 transition-colors">
-            Sign in
-          </a>
-        </p>
       </div>
 
       {/* Footer */}
