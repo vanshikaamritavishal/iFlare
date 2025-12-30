@@ -519,9 +519,28 @@ async function handleRoute(request, { params }) {
     if (route.startsWith('/flares/') && route.endsWith('/join') && method === 'POST') {
       const flareId = path[1]
       const body = await request.json()
-      const { userId, userName } = body
+      const { userId, userName, flareData } = body
 
-      const flare = await db.collection('flares').findOne({ id: flareId })
+      // Check if flare exists in database
+      let flare = await db.collection('flares').findOne({ id: flareId })
+
+      // If flare doesn't exist but we have flare data (from sample data), create it
+      if (!flare && flareData) {
+        flare = {
+          id: flareId,
+          title: flareData.title,
+          description: flareData.description,
+          interests: flareData.interests,
+          location: flareData.location,
+          startTime: new Date(flareData.startTime),
+          host: flareData.host,
+          attendees: flareData.attendees || [],
+          maxAttendees: flareData.maxAttendees,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }
+        await db.collection('flares').insertOne(flare)
+      }
 
       if (!flare) {
         return handleCORS(NextResponse.json(
@@ -530,7 +549,13 @@ async function handleRoute(request, { params }) {
         ))
       }
 
-      if (flare.attendees.length >= flare.maxAttendees - 1) {
+      // Check if user already joined
+      const alreadyJoined = flare.attendees?.some(a => a.id === userId)
+      if (alreadyJoined) {
+        return handleCORS(NextResponse.json({ message: 'Already joined' }))
+      }
+
+      if (flare.attendees && flare.attendees.length >= flare.maxAttendees - 1) {
         return handleCORS(NextResponse.json(
           { error: 'Flare is full' },
           { status: 400 }
