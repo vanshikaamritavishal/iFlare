@@ -36,7 +36,7 @@ export default function ProfilePage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [hasChanges, setHasChanges] = useState(false)
-  const [activeTab, setActiveTab] = useState('interests') // 'interests' or 'flares'
+  const [activeTab, setActiveTab] = useState('flares') // 'interests' or 'flares' - default to flares
 
   // Load user data
   useEffect(() => {
