@@ -266,7 +266,7 @@ export default function FlaresPage() {
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          oderId: currentUser.id,
+          userId: currentUser.id,
           userName: currentUser.name,
           // Also save the flare data for profile display
           flareData: flares.find(f => f.id === flareId)
