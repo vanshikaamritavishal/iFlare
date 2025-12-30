@@ -243,7 +243,8 @@ export default function FlaresPage() {
     }
   }
 
-  const handleJoinFlare = (flareId) => {
+  const handleJoinFlare = async (flareId) => {
+    // Update local state immediately for UI
     setFlares(prev => prev.map(flare => {
       if (flare.id === flareId && flare.attendees.length < flare.maxAttendees) {
         return {
@@ -254,6 +255,26 @@ export default function FlaresPage() {
       return flare
     }))
     setSelectedFlare(null)
+
+    // Save to database
+    try {
+      const token = localStorage.getItem('iflare_token')
+      await fetch(`/api/flares/${flareId}/join`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          oderId: currentUser.id,
+          userName: currentUser.name,
+          // Also save the flare data for profile display
+          flareData: flares.find(f => f.id === flareId)
+        })
+      })
+    } catch (err) {
+      console.error('Error joining flare:', err)
+    }
   }
 
   return (
