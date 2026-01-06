@@ -9,6 +9,7 @@ import {
   Calendar, ChevronRight, Sparkles, X, Navigation,
   Home, Bell, User, Check, AlertCircle, Timer
 } from 'lucide-react'
+import { useNotificationContext } from '@/lib/NotificationProvider'
 
 // Mock user data (would come from auth context in real app)
 // Will be replaced with actual user data from localStorage
