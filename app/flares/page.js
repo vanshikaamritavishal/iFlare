@@ -293,8 +293,40 @@ export default function FlaresPage() {
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 pb-24">
+      {/* Notification Permission Prompt */}
+      {showNotificationPrompt && (
+        <div className="fixed top-0 left-0 right-0 z-50 p-4 bg-gradient-to-r from-orange-500 to-red-500">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Bell className="w-6 h-6 text-white" />
+              <div>
+                <p className="font-semibold text-white">Enable Notifications</p>
+                <p className="text-xs text-white/80">Get notified about new iFlares matching your interests</p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  requestPermission()
+                  setShowNotificationPrompt(false)
+                }}
+                className="px-4 py-2 bg-white text-orange-500 rounded-lg font-medium text-sm"
+              >
+                Enable
+              </button>
+              <button
+                onClick={() => setShowNotificationPrompt(false)}
+                className="px-3 py-2 text-white/80 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-slate-950/80 backdrop-blur-lg border-b border-slate-800/50">
+      <header className={`sticky top-0 z-40 bg-slate-950/80 backdrop-blur-lg border-b border-slate-800/50 ${showNotificationPrompt ? 'mt-20' : ''}`}>
         <div className="px-4 py-4">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
@@ -302,8 +334,16 @@ export default function FlaresPage() {
               <span className="font-bold text-xl">iFLARE</span>
             </div>
             <div className="flex items-center gap-2">
-              <button className="w-10 h-10 rounded-full bg-slate-800/50 flex items-center justify-center text-slate-400">
+              <button 
+                onClick={() => router.push('/activity')}
+                className="relative w-10 h-10 rounded-full bg-slate-800/50 flex items-center justify-center text-slate-400 hover:text-white"
+              >
                 <Bell className="w-5 h-5" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-xs font-bold text-white">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
               </button>
             </div>
           </div>
