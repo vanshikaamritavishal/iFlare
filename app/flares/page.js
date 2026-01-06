@@ -216,35 +216,27 @@ export default function FlaresPage() {
 
   // Filter and sort flares based on:
   // 1. User interests match
-  // 2. Within 90-min window
-  // 3. Sorted by urgency (less time = higher priority)
+  // 2. Sorted by start time
   useEffect(() => {
-    const now = currentTime
-    const ninetyMinsFromNow = new Date(now.getTime() + 90 * 60 * 1000)
-    
     let filtered = flares.filter(flare => {
       // Check if any of user's interests match any of flare's interests
-      const hasMatchingInterest = flare.interests.some(interest => 
+      const hasMatchingInterest = flare.interests?.some(interest => 
         currentUser.interests.includes(interest)
       )
       
-      // Check if within 90-min window (start time is within next 90 mins)
-      const startTime = new Date(flare.startTime)
-      const isWithinWindow = startTime >= now && startTime <= ninetyMinsFromNow
-      
-      return hasMatchingInterest && isWithinWindow
+      return hasMatchingInterest
     })
     
     // Apply interest filter if not 'all'
     if (activeFilter !== 'all') {
-      filtered = filtered.filter(flare => flare.interests.includes(activeFilter))
+      filtered = filtered.filter(flare => flare.interests?.includes(activeFilter))
     }
     
     // Apply search filter
     if (searchQuery) {
       filtered = filtered.filter(flare => 
         flare.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        flare.description.toLowerCase().includes(searchQuery.toLowerCase())
+        flare.description?.toLowerCase().includes(searchQuery.toLowerCase())
       )
     }
     
