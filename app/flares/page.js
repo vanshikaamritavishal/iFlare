@@ -138,6 +138,7 @@ const generateSampleFlares = () => {
 
 export default function FlaresPage() {
   const router = useRouter()
+  const { permission, hasAskedPermission, requestPermission, unreadCount, notifyNewFlare } = useNotificationContext()
   const [currentUser, setCurrentUser] = useState(DEFAULT_USER)
   const [flares, setFlares] = useState([])
   const [filteredFlares, setFilteredFlares] = useState([])
@@ -146,6 +147,7 @@ export default function FlaresPage() {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [selectedFlare, setSelectedFlare] = useState(null)
   const [currentTime, setCurrentTime] = useState(new Date())
+  const [showNotificationPrompt, setShowNotificationPrompt] = useState(false)
 
   // Load user from localStorage
   useEffect(() => {
@@ -159,6 +161,17 @@ export default function FlaresPage() {
       }
     }
   }, [])
+
+  // Request notification permission after first visit
+  useEffect(() => {
+    if (!hasAskedPermission && permission === 'default') {
+      // Show prompt after a short delay
+      const timer = setTimeout(() => {
+        setShowNotificationPrompt(true)
+      }, 2000)
+      return () => clearTimeout(timer)
+    }
+  }, [hasAskedPermission, permission])
 
   // Initialize flares
   useEffect(() => {
