@@ -1,5 +1,5 @@
 import './globals.css'
-import { NotificationProvider } from '@/lib/NotificationProvider'
+import ClientProviders from '@/components/ClientProviders'
 
 export const metadata = {
   title: 'iFLARE - Real connections. Right now.',
@@ -10,9 +10,9 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white">
-        <NotificationProvider>
+        <ClientProviders>
           {children}
-        </NotificationProvider>
+        </ClientProviders>
       </body>
     </html>
   )
