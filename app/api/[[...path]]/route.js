@@ -564,14 +564,9 @@ async function handleRoute(request, { params }) {
     if (route === '/flares' && method === 'GET') {
       const url = new URL(request.url)
       const interests = url.searchParams.get('interests')?.split(',') || []
-      const userId = url.searchParams.get('userId')
-      
-      const now = new Date()
 
-      // Build query - get flares starting from now (upcoming)
-      const query = {
-        startTime: { $gte: now }
-      }
+      // Build query - get all flares (frontend will filter by time)
+      const query = {}
 
       if (interests.length > 0 && interests[0] !== '') {
         query.interests = { $in: interests }
