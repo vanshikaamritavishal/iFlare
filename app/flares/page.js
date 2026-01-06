@@ -725,7 +725,7 @@ function CreateFlareModal({ onClose, onCreated, currentUser }) {
     }))
   }
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (formData.interests.length === 0) {
       alert('Please select at least one interest category')
       return
@@ -745,9 +745,40 @@ function CreateFlareModal({ onClose, onCreated, currentUser }) {
       maxAttendees: formData.maxAttendees,
     }
     
-    setTimeout(() => {
-      onCreated(newFlare)
-    }, 1000)
+    try {
+      // Save to database
+      const token = localStorage.getItem('iflare_token')
+      const response = await fetch('/api/flares', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          title: newFlare.title,
+          description: newFlare.description,
+          interests: newFlare.interests,
+          location: newFlare.location,
+          startTime: newFlare.startTime,
+          maxAttendees: newFlare.maxAttendees,
+          hostId: currentUser?.id,
+          hostName: currentUser?.name
+        })
+      })
+
+      if (response.ok) {
+        const savedFlare = await response.json()
+        onCreated(savedFlare)
+      } else {
+        const error = await response.json()
+        alert(error.error || 'Failed to create iFlare')
+        setIsSubmitting(false)
+      }
+    } catch (err) {
+      console.error('Error creating flare:', err)
+      alert('Something went wrong. Please try again.')
+      setIsSubmitting(false)
+    }
   }
 
   // Example activities for placeholder
