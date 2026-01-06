@@ -408,11 +408,11 @@ export default function FlaresPage() {
         </div>
       </header>
 
-      {/* 90-min Window Notice */}
+      {/* iFlares matching your interests */}
       <div className="px-4 py-3 bg-orange-500/10 border-b border-orange-500/20">
         <div className="flex items-center gap-2 text-sm text-orange-400">
-          <Timer className="w-4 h-4" />
-          <span>Showing iFlares starting within 90 minutes • Sorted by urgency</span>
+          <Flame className="w-4 h-4" />
+          <span>iFlares matching your interests • {filteredFlares.length} found</span>
         </div>
       </div>
 
