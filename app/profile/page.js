@@ -5,8 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { 
   Flame, User, Bell, Search, ArrowLeft, Check, 
-  MapPin, Clock, Users, Calendar, LogOut, Settings,
-  ChevronRight, Loader2
+  LogOut, Loader2, Globe, Users, MapPin, Building
 } from 'lucide-react'
 
 // All interest categories
@@ -25,24 +24,26 @@ const ALL_INTERESTS = [
   { id: 'travel', label: '✈️ Travel & Exploration', color: 'bg-cyan-500/20 border-cyan-500/50 text-cyan-400' },
 ]
 
-// Interest map for quick lookup
-const INTEREST_MAP = Object.fromEntries(ALL_INTERESTS.map(i => [i.id, i]))
-
 export default function ProfilePage() {
   const router = useRouter()
   const [user, setUser] = useState(null)
   const [selectedInterests, setSelectedInterests] = useState([])
-  const [joinedFlares, setJoinedFlares] = useState([])
+  const [visibilityMode, setVisibilityMode] = useState('locality') // 'community' or 'locality'
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [hasChanges, setHasChanges] = useState(false)
-  const [activeTab, setActiveTab] = useState('flares') // 'interests' or 'flares' - default to flares
+
+  // Get email domain for community display
+  const getEmailDomain = (email) => {
+    if (!email) return ''
+    const parts = email.split('@')
+    return parts.length > 1 ? `@${parts[1]}` : ''
+  }
 
   // Load user data
   useEffect(() => {
     const loadUserData = async () => {
       try {
-        // Get user from localStorage
         const storedUser = localStorage.getItem('iflare_user')
         const token = localStorage.getItem('iflare_token')
         
@@ -54,16 +55,7 @@ export default function ProfilePage() {
         const userData = JSON.parse(storedUser)
         setUser(userData)
         setSelectedInterests(userData.interests || [])
-
-        // Fetch joined flares
-        const response = await fetch(`/api/user/${userData.id}/flares`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        })
-        
-        if (response.ok) {
-          const data = await response.json()
-          setJoinedFlares(data.flares || [])
-        }
+        setVisibilityMode(userData.visibilityMode || 'locality')
       } catch (err) {
         console.error('Error loading profile:', err)
       } finally {
@@ -83,14 +75,24 @@ export default function ProfilePage() {
       // Check if different from original
       const originalInterests = user?.interests || []
       const isDifferent = newInterests.length !== originalInterests.length ||
-        newInterests.some(i => !originalInterests.includes(i))
+        newInterests.some(i => !originalInterests.includes(i)) ||
+        visibilityMode !== (user?.visibilityMode || 'locality')
       setHasChanges(isDifferent)
       
       return newInterests
     })
   }
 
-  const handleSaveInterests = async () => {
+  const handleVisibilityChange = (mode) => {
+    setVisibilityMode(mode)
+    const originalMode = user?.visibilityMode || 'locality'
+    const originalInterests = user?.interests || []
+    const interestsDifferent = selectedInterests.length !== originalInterests.length ||
+      selectedInterests.some(i => !originalInterests.includes(i))
+    setHasChanges(mode !== originalMode || interestsDifferent)
+  }
+
+  const handleSaveSettings = async () => {
     if (selectedInterests.length < 3) {
       alert('Please select at least 3 interests')
       return
@@ -99,7 +101,7 @@ export default function ProfilePage() {
     setIsSaving(true)
     try {
       const token = localStorage.getItem('iflare_token')
-      const response = await fetch('/api/user/interests', {
+      const response = await fetch('/api/user/settings', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -107,21 +109,21 @@ export default function ProfilePage() {
         },
         body: JSON.stringify({
           userId: user.id,
-          interests: selectedInterests
+          interests: selectedInterests,
+          visibilityMode: visibilityMode
         })
       })
 
       if (response.ok) {
-        const data = await response.json()
         // Update local storage and state
-        const updatedUser = { ...user, interests: selectedInterests }
+        const updatedUser = { ...user, interests: selectedInterests, visibilityMode }
         localStorage.setItem('iflare_user', JSON.stringify(updatedUser))
         setUser(updatedUser)
         setHasChanges(false)
-        alert('Interests updated successfully!')
+        alert('Settings saved successfully!')
       } else {
         const error = await response.json()
-        alert(error.error || 'Failed to update interests')
+        alert(error.error || 'Failed to save settings')
       }
     } catch (err) {
       alert('Something went wrong')
@@ -134,14 +136,6 @@ export default function ProfilePage() {
     localStorage.removeItem('iflare_user')
     localStorage.removeItem('iflare_token')
     router.push('/login')
-  }
-
-  const formatDateTime = (dateString) => {
-    const date = new Date(dateString)
-    return {
-      date: date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }),
-      time: date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
-    }
   }
 
   if (isLoading) {
@@ -175,9 +169,9 @@ export default function ProfilePage() {
         </div>
       </header>
 
-      {/* User Info */}
       <div className="px-4 py-6">
-        <div className="flex items-center gap-4 mb-6">
+        {/* User Info */}
+        <div className="flex items-center gap-4 mb-8">
           <div className="w-16 h-16 rounded-full bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center text-2xl font-bold">
             {user?.name?.charAt(0)?.toUpperCase() || 'U'}
           </div>
@@ -187,152 +181,127 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-2 gap-3 mb-6">
-          <div className="bg-slate-800/50 rounded-xl p-4 text-center">
-            <p className="text-2xl font-bold text-orange-400">{selectedInterests.length}</p>
-            <p className="text-sm text-slate-400">Interests</p>
-          </div>
-          <div className="bg-slate-800/50 rounded-xl p-4 text-center">
-            <p className="text-2xl font-bold text-orange-400">{joinedFlares.length}</p>
-            <p className="text-sm text-slate-400">iFlares Joined</p>
+        {/* Visibility Settings */}
+        <div className="mb-8">
+          <h3 className="text-lg font-semibold mb-2">iFlare Visibility</h3>
+          <p className="text-sm text-slate-400 mb-4">
+            Choose who can see and publish iFlares with you
+          </p>
+
+          <div className="space-y-3">
+            {/* Community Option */}
+            <button
+              onClick={() => handleVisibilityChange('community')}
+              className={`w-full p-4 rounded-2xl border-2 transition-all text-left ${
+                visibilityMode === 'community'
+                  ? 'border-orange-500 bg-orange-500/10'
+                  : 'border-slate-700 bg-slate-800/50 hover:border-slate-600'
+              }`}
+            >
+              <div className="flex items-start gap-3">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                  visibilityMode === 'community' ? 'bg-orange-500' : 'bg-slate-700'
+                }`}>
+                  <Building className="w-5 h-5 text-white" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-semibold">My Community Only</h4>
+                    {visibilityMode === 'community' && (
+                      <Check className="w-5 h-5 text-orange-500" />
+                    )}
+                  </div>
+                  <p className="text-sm text-slate-400 mt-1">
+                    See & publish iFlares only with people from your organization
+                  </p>
+                  <p className="text-xs text-orange-400 mt-2 font-medium">
+                    {getEmailDomain(user?.email)} community
+                  </p>
+                </div>
+              </div>
+            </button>
+
+            {/* Locality Option */}
+            <button
+              onClick={() => handleVisibilityChange('locality')}
+              className={`w-full p-4 rounded-2xl border-2 transition-all text-left ${
+                visibilityMode === 'locality'
+                  ? 'border-orange-500 bg-orange-500/10'
+                  : 'border-slate-700 bg-slate-800/50 hover:border-slate-600'
+              }`}
+            >
+              <div className="flex items-start gap-3">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                  visibilityMode === 'locality' ? 'bg-orange-500' : 'bg-slate-700'
+                }`}>
+                  <MapPin className="w-5 h-5 text-white" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-semibold">Open to Nearby</h4>
+                    {visibilityMode === 'locality' && (
+                      <Check className="w-5 h-5 text-orange-500" />
+                    )}
+                  </div>
+                  <p className="text-sm text-slate-400 mt-1">
+                    See & publish iFlares with everyone within your locality
+                  </p>
+                  <p className="text-xs text-orange-400 mt-2 font-medium">
+                    📍 Within 2km of your location
+                  </p>
+                </div>
+              </div>
+            </button>
           </div>
         </div>
 
-        {/* Tabs */}
-        <div className="flex gap-2 mb-6">
-          <button
-            onClick={() => setActiveTab('interests')}
-            className={`flex-1 py-3 rounded-xl font-medium transition-all ${
-              activeTab === 'interests'
-                ? 'bg-orange-500 text-white'
-                : 'bg-slate-800/50 text-slate-400'
-            }`}
-          >
-            My Interests
-          </button>
-          <button
-            onClick={() => setActiveTab('flares')}
-            className={`flex-1 py-3 rounded-xl font-medium transition-all ${
-              activeTab === 'flares'
-                ? 'bg-orange-500 text-white'
-                : 'bg-slate-800/50 text-slate-400'
-            }`}
-          >
-            Joined iFlares
-          </button>
-        </div>
-
-        {/* Interests Tab */}
-        {activeTab === 'interests' && (
-          <div>
-            <p className="text-slate-400 text-sm mb-4">
-              Select your interests to see relevant iFlares. Minimum 3 required.
-            </p>
-            
-            <div className="flex flex-wrap gap-3 mb-6">
-              {ALL_INTERESTS.map((interest) => (
-                <button
-                  key={interest.id}
-                  onClick={() => toggleInterest(interest.id)}
-                  className={`px-4 py-3 rounded-xl border transition-all duration-200 flex items-center gap-2 ${
-                    selectedInterests.includes(interest.id)
-                      ? `${interest.color} scale-105`
-                      : 'bg-slate-800/50 border-slate-700 text-slate-400 hover:border-slate-600'
-                  }`}
-                >
-                  <span className="text-sm font-medium">{interest.label}</span>
-                  {selectedInterests.includes(interest.id) && (
-                    <Check className="w-4 h-4" />
-                  )}
-                </button>
-              ))}
-            </div>
-
-            {hasChanges && (
-              <Button
-                onClick={handleSaveInterests}
-                disabled={selectedInterests.length < 3 || isSaving}
-                className="w-full h-14 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-semibold rounded-2xl"
+        {/* Interests */}
+        <div className="mb-8">
+          <h3 className="text-lg font-semibold mb-2">My Interests</h3>
+          <p className="text-sm text-slate-400 mb-4">
+            Select interests to see relevant iFlares. Minimum 3 required.
+          </p>
+          
+          <div className="flex flex-wrap gap-3">
+            {ALL_INTERESTS.map((interest) => (
+              <button
+                key={interest.id}
+                onClick={() => toggleInterest(interest.id)}
+                className={`px-4 py-3 rounded-xl border transition-all duration-200 flex items-center gap-2 ${
+                  selectedInterests.includes(interest.id)
+                    ? `${interest.color} scale-105`
+                    : 'bg-slate-800/50 border-slate-700 text-slate-400 hover:border-slate-600'
+                }`}
               >
-                {isSaving ? (
-                  <span className="flex items-center gap-2">
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    Saving...
-                  </span>
-                ) : (
-                  <>Save Changes ({selectedInterests.length} selected)</>
+                <span className="text-sm font-medium">{interest.label}</span>
+                {selectedInterests.includes(interest.id) && (
+                  <Check className="w-4 h-4" />
                 )}
-              </Button>
-            )}
+              </button>
+            ))}
           </div>
-        )}
+          
+          <p className="text-sm text-slate-500 mt-3">
+            {selectedInterests.length} interest{selectedInterests.length !== 1 ? 's' : ''} selected
+          </p>
+        </div>
 
-        {/* Joined Flares Tab */}
-        {activeTab === 'flares' && (
-          <div>
-            {joinedFlares.length === 0 ? (
-              <div className="text-center py-12">
-                <Flame className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-                <p className="text-slate-400">You haven't joined any iFlares yet</p>
-                <p className="text-sm text-slate-500 mt-1">Explore and join iFlares to see them here</p>
-                <Button
-                  onClick={() => router.push('/flares')}
-                  className="mt-4 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl"
-                >
-                  Explore iFlares
-                </Button>
-              </div>
+        {/* Save Button */}
+        {hasChanges && (
+          <Button
+            onClick={handleSaveSettings}
+            disabled={selectedInterests.length < 3 || isSaving}
+            className="w-full h-14 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-semibold rounded-2xl"
+          >
+            {isSaving ? (
+              <span className="flex items-center gap-2">
+                <Loader2 className="w-5 h-5 animate-spin" />
+                Saving...
+              </span>
             ) : (
-              <div className="space-y-3">
-                {joinedFlares.map(flare => {
-                  const { date, time } = formatDateTime(flare.startTime)
-                  const interestInfo = INTEREST_MAP[flare.interests?.[0]] || {}
-                  
-                  return (
-                    <div
-                      key={flare.id}
-                      className="bg-slate-800/50 rounded-2xl p-4 border border-slate-700/50"
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-500/20 to-red-500/20 flex items-center justify-center text-2xl flex-shrink-0">
-                          {interestInfo.label?.split(' ')[0] || '🔥'}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold line-clamp-1">{flare.title}</h3>
-                          <p className="text-sm text-slate-400 mb-2 line-clamp-1">{flare.description}</p>
-                          
-                          <div className="flex flex-wrap gap-3 text-xs text-slate-500">
-                            <span className="flex items-center gap-1">
-                              <Calendar className="w-3 h-3" />
-                              {date}
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <Clock className="w-3 h-3" />
-                              {time}
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <MapPin className="w-3 h-3" />
-                              {flare.location?.name || 'TBD'}
-                            </span>
-                          </div>
-                          
-                          <div className="flex items-center gap-2 mt-2">
-                            <span className="text-xs text-slate-400">
-                              Hosted by {flare.host?.name}
-                            </span>
-                            <span className="text-xs text-orange-400">
-                              • {(flare.attendees?.length || 0) + 1}/{flare.maxAttendees} going
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
+              'Save Changes'
             )}
-          </div>
+          </Button>
         )}
       </div>
 
@@ -350,7 +319,10 @@ export default function ProfilePage() {
             <Search className="w-6 h-6" />
             <span className="text-xs">Explore</span>
           </button>
-          <button className="flex flex-col items-center gap-1 text-slate-500">
+          <button 
+            onClick={() => router.push('/activity')}
+            className="flex flex-col items-center gap-1 text-slate-500"
+          >
             <Bell className="w-6 h-6" />
             <span className="text-xs">Activity</span>
           </button>
