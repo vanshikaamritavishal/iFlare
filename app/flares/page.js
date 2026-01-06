@@ -502,6 +502,8 @@ export default function FlaresPage() {
           onCreated={(newFlare) => {
             setFlares(prev => [newFlare, ...prev])
             setShowCreateModal(false)
+            // Notify about new flare (simulating notification to other users)
+            notifyNewFlare(newFlare, newFlare.interests)
           }}
           currentUser={currentUser}
         />
