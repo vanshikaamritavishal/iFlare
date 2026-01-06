@@ -240,11 +240,11 @@ export default function FlaresPage() {
       )
     }
     
-    // Sort by urgency - less time remaining = higher priority
+    // Sort by start time - upcoming first
     filtered.sort((a, b) => {
-      const timeA = new Date(a.startTime).getTime() - now.getTime()
-      const timeB = new Date(b.startTime).getTime() - now.getTime()
-      return timeA - timeB // Ascending order - closest first
+      const timeA = new Date(a.startTime).getTime()
+      const timeB = new Date(b.startTime).getTime()
+      return timeA - timeB // Ascending order - earliest first
     })
     
     setFilteredFlares(filtered)
