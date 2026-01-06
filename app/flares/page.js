@@ -173,10 +173,38 @@ export default function FlaresPage() {
     }
   }, [hasAskedPermission, permission])
 
-  // Initialize flares
+  // Initialize flares - fetch from database AND add sample data
   useEffect(() => {
-    setFlares(generateSampleFlares())
-  }, [])
+    const fetchFlares = async () => {
+      try {
+        const token = localStorage.getItem('iflare_token')
+        const interests = currentUser.interests.join(',')
+        
+        // Fetch real flares from database
+        const response = await fetch(`/api/flares?interests=${interests}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        })
+        
+        if (response.ok) {
+          const dbFlares = await response.json()
+          // Combine with sample flares for demo
+          const sampleFlares = generateSampleFlares()
+          // Filter out any duplicates by ID
+          const dbFlareIds = new Set(dbFlares.map(f => f.id))
+          const uniqueSampleFlares = sampleFlares.filter(f => !dbFlareIds.has(f.id))
+          setFlares([...dbFlares, ...uniqueSampleFlares])
+        } else {
+          // Fallback to sample flares
+          setFlares(generateSampleFlares())
+        }
+      } catch (err) {
+        console.error('Error fetching flares:', err)
+        setFlares(generateSampleFlares())
+      }
+    }
+    
+    fetchFlares()
+  }, [currentUser.interests])
 
   // Update current time every minute for countdown
   useEffect(() => {
