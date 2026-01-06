@@ -455,6 +455,78 @@ async function handleRoute(request, { params }) {
       }))
     }
 
+    // Get user's activity (created and joined flares)
+    if (route.match(/^\/user\/[^/]+\/activity$/) && method === 'GET') {
+      const userId = path[1]
+
+      // Find flares created by user
+      const createdFlares = await db.collection('flares')
+        .find({ 'host.id': userId })
+        .sort({ startTime: -1 })
+        .limit(50)
+        .toArray()
+
+      // Find flares joined by user (where user is in attendees, not host)
+      const joinedFlares = await db.collection('flares')
+        .find({ 
+          'attendees.id': userId,
+          'host.id': { $ne: userId }
+        })
+        .sort({ startTime: -1 })
+        .limit(50)
+        .toArray()
+
+      const cleanCreated = createdFlares.map(({ _id, ...rest }) => rest)
+      const cleanJoined = joinedFlares.map(({ _id, ...rest }) => rest)
+
+      return handleCORS(NextResponse.json({
+        created: cleanCreated,
+        joined: cleanJoined
+      }))
+    }
+
+    // Update user settings (interests + visibility)
+    if (route === '/user/settings' && method === 'PUT') {
+      const body = await request.json()
+      const { userId, interests, visibilityMode } = body
+
+      if (!userId) {
+        return handleCORS(NextResponse.json(
+          { error: 'User ID is required' },
+          { status: 400 }
+        ))
+      }
+
+      if (interests && (!Array.isArray(interests) || interests.length < 3)) {
+        return handleCORS(NextResponse.json(
+          { error: 'Please select at least 3 interests' },
+          { status: 400 }
+        ))
+      }
+
+      const updateFields = { updatedAt: new Date() }
+      if (interests) updateFields.interests = interests
+      if (visibilityMode) updateFields.visibilityMode = visibilityMode
+
+      const result = await db.collection('users').updateOne(
+        { id: userId },
+        { $set: updateFields }
+      )
+
+      if (result.matchedCount === 0) {
+        return handleCORS(NextResponse.json(
+          { error: 'User not found' },
+          { status: 404 }
+        ))
+      }
+
+      return handleCORS(NextResponse.json({
+        message: 'Settings updated successfully',
+        interests,
+        visibilityMode
+      }))
+    }
+
     // ==================== FLARE ROUTES ====================
 
     // Create flare
