@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Flame, Sparkles, Users, MapPin, ArrowRight } from 'lucide-react'
+import { Radar, Sparkles, Users, MapPin, ArrowRight } from 'lucide-react'
 
 export default function Home() {
   const router = useRouter()
@@ -17,10 +17,10 @@ export default function Home() {
     <main className="min-h-screen flex flex-col items-center justify-center px-6 py-12 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
       {/* Logo and App Name */}
       <div className={`flex flex-col items-center transition-all duration-700 ${isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-        {/* Animated Flame Icon */}
+        {/* Animated Radar Icon */}
         <div className="relative mb-6">
           <div className="absolute inset-0 bg-orange-500/30 blur-3xl rounded-full w-32 h-32 -translate-x-1/2 -translate-y-1/2 top-1/2 left-1/2 animate-pulse" />
-          <Flame className="w-20 h-20 text-orange-500 relative z-10" strokeWidth={1.5} />
+          <Radar className="w-20 h-20 text-orange-500 relative z-10" strokeWidth={1.5} />
         </div>
 
         {/* App Name */}

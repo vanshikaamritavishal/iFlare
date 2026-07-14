@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Flame, ArrowRight, ArrowLeft, Check, Mail, User, Lock, Loader2 } from 'lucide-react'
+import { Radar, ArrowRight, ArrowLeft, Check, Mail, User, Lock, Loader2 } from 'lucide-react'
 
 // Interest categories for building user persona
 const INTEREST_CATEGORIES = [
@@ -112,7 +112,7 @@ export default function RegisterPage() {
         </button>
         
         <div className="flex items-center gap-2">
-          <Flame className="w-6 h-6 text-orange-500" />
+          <Radar className="w-6 h-6 text-orange-500" />
           <span className="font-bold text-lg">iFLARE</span>
         </div>
         

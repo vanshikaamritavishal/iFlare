@@ -2,7 +2,7 @@
 
 import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Flame, CheckCircle, XCircle, Loader2 } from 'lucide-react'
+import { Radar, CheckCircle, XCircle, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 function VerifyContent() {
@@ -56,7 +56,7 @@ function VerifyContent() {
     <main className="min-h-screen flex flex-col items-center justify-center px-6 py-12 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
       {/* Logo */}
       <div className="flex items-center gap-2 mb-12">
-        <Flame className="w-8 h-8 text-orange-500" />
+        <Radar className="w-8 h-8 text-orange-500" />
         <span className="font-bold text-2xl">iFLARE</span>
       </div>
 

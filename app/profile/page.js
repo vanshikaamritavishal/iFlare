@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { 
-  Flame, User, Bell, Search, ArrowLeft, Check, 
+  Radar, User, Bell, Search, ArrowLeft, Check, 
   LogOut, Loader2, Globe, Users, MapPin, Building
 } from 'lucide-react'
 
@@ -312,7 +312,7 @@ export default function ProfilePage() {
             onClick={() => router.push('/flares')}
             className="flex flex-col items-center gap-1 text-slate-500"
           >
-            <Flame className="w-6 h-6" />
+            <Radar className="w-6 h-6" />
             <span className="text-xs">Flares</span>
           </button>
           <button className="flex flex-col items-center gap-1 text-slate-500">

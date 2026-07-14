@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Flame, ArrowLeft, Eye, EyeOff, Mail, Loader2 } from 'lucide-react'
+import { Radar, ArrowLeft, Eye, EyeOff, Mail, Loader2 } from 'lucide-react'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -64,7 +64,7 @@ export default function LoginPage() {
         </button>
         
         <div className="flex items-center gap-2">
-          <Flame className="w-6 h-6 text-orange-500" />
+          <Radar className="w-6 h-6 text-orange-500" />
           <span className="font-bold text-lg">iFLARE</span>
         </div>
         

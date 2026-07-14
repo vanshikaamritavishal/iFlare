@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { 
-  Flame, Bell, Search, User, ArrowLeft, MapPin, Clock, 
+  Radar, Bell, Search, User, ArrowLeft, MapPin, Clock, 
   Users, Calendar, Loader2, Plus, ChevronRight
 } from 'lucide-react'
 
@@ -154,7 +154,7 @@ export default function ActivityPage() {
       <div className="px-4 py-4">
         {filteredFlares.length === 0 ? (
           <div className="text-center py-12">
-            <Flame className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+            <Radar className="w-12 h-12 text-slate-600 mx-auto mb-3" />
             <p className="text-slate-400">
               {activeTab === 'created' 
                 ? "You haven't created any iFlares yet"
@@ -251,7 +251,7 @@ export default function ActivityPage() {
             onClick={() => router.push('/flares')}
             className="flex flex-col items-center gap-1 text-slate-500"
           >
-            <Flame className="w-6 h-6" />
+            <Radar className="w-6 h-6" />
             <span className="text-xs">Flares</span>
           </button>
           <button className="flex flex-col items-center gap-1 text-slate-500">

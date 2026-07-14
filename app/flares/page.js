@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { 
-  Flame, Plus, MapPin, Clock, Users, Search, Filter,
+  Radar, Plus, MapPin, Clock, Users, Search, Filter,
   Calendar, ChevronRight, Sparkles, X, Navigation,
   Home, Bell, User, Check, AlertCircle, Timer
 } from 'lucide-react'
@@ -350,7 +350,7 @@ export default function FlaresPage() {
         <div className="px-4 py-4">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <Flame className="w-7 h-7 text-orange-500" />
+              <Radar className="w-7 h-7 text-orange-500" />
               <span className="font-bold text-xl">iFLARE</span>
             </div>
             <div className="flex items-center gap-2">
@@ -411,7 +411,7 @@ export default function FlaresPage() {
       {/* iFlares matching your interests */}
       <div className="px-4 py-3 bg-orange-500/10 border-b border-orange-500/20">
         <div className="flex items-center gap-2 text-sm text-orange-400">
-          <Flame className="w-4 h-4" />
+          <Radar className="w-4 h-4" />
           <span>iFlares matching your interests • {filteredFlares.length} found</span>
         </div>
       </div>
@@ -479,7 +479,7 @@ export default function FlaresPage() {
       <nav className="fixed bottom-0 left-0 right-0 bg-slate-950/90 backdrop-blur-lg border-t border-slate-800/50 px-6 py-3 z-40">
         <div className="flex items-center justify-around">
           <button className="flex flex-col items-center gap-1 text-orange-500">
-            <Flame className="w-6 h-6" />
+            <Radar className="w-6 h-6" />
             <span className="text-xs">Flares</span>
           </button>
           <button className="flex flex-col items-center gap-1 text-slate-500">
@@ -1009,7 +1009,7 @@ function CreateFlareModal({ onClose, onCreated, currentUser }) {
                       Creating...
                     </span>
                   ) : (
-                    <>Create iFlare <Flame className="w-5 h-5 ml-2" /></>
+                    <>Create iFlare <Radar className="w-5 h-5 ml-2" /></>
                   )}
                 </Button>
               </div>
