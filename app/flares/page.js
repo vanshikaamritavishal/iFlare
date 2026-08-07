@@ -316,7 +316,7 @@ export default function FlaresPage() {
 
       {/* Notification Permission Prompt */}
       {showNotificationPrompt && (
-        <div className="fixed top-0 left-0 right-0 z-50 p-4 bg-gradient-to-r from-orange-500 to-red-500">
+        <div className="fixed top-0 left-0 right-0 z-50 p-4 bg-orange-600">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Bell className="w-6 h-6 text-white" />
@@ -471,9 +471,10 @@ export default function FlaresPage() {
       {/* Floating Create Button */}
       <button
         onClick={() => setShowCreateModal(true)}
-        className="fixed bottom-24 right-4 w-14 h-14 bg-gradient-to-r from-orange-500 to-red-500 rounded-full shadow-lg shadow-orange-500/30 flex items-center justify-center text-white hover:scale-110 transition-transform z-50"
+        aria-label="Create iFlare"
+        className="fixed bottom-24 right-4 w-12 h-12 rounded-full bg-orange-600 hover:bg-orange-700 flex items-center justify-center text-white shadow-md ring-1 ring-orange-400/30 transition-colors z-50"
       >
-        <Plus className="w-7 h-7" />
+        <Plus className="w-5 h-5" />
       </button>
 
       {/* Bottom Navigation */}
@@ -539,7 +540,7 @@ function FlareCard({ flare, onClick, timeInfo, getUrgencyStyles }) {
       }`}
     >
       <div className="flex items-start gap-3">
-        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-500/20 to-red-500/20 flex items-center justify-center text-2xl flex-shrink-0">
+        <div className="w-12 h-12 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-2xl flex-shrink-0">
           {INTEREST_MAP[flare.interests[0]]?.label.split(' ')[0]}
         </div>
         <div className="flex-1 min-w-0">
@@ -707,7 +708,7 @@ function FlareDetailModal({ flare, onClose, onJoin, currentUser, timeInfo, getUr
               className={`w-full h-14 text-white font-semibold text-lg rounded-2xl ${
                 timeInfo.urgency === 'critical' 
                   ? 'bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 animate-pulse'
-                  : 'bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600'
+                  : 'bg-orange-600 hover:bg-orange-700'
               }`}
             >
               {timeInfo.urgency === 'critical' ? '🔥 Join Now!' : 'Join this iFlare'}
@@ -890,7 +891,7 @@ function CreateFlareModal({ onClose, onCreated, currentUser }) {
               <Button
                 onClick={() => setStep(2)}
                 disabled={!formData.title || !formData.description}
-                className="w-full h-14 bg-gradient-to-r from-orange-500 to-red-500 text-white font-semibold rounded-2xl mt-4"
+                className="w-full h-14 bg-orange-600 text-white font-semibold rounded-2xl mt-4"
               >
                 Continue
               </Button>
@@ -991,14 +992,14 @@ function CreateFlareModal({ onClose, onCreated, currentUser }) {
               <div className="flex gap-3 mt-4">
                 <Button
                   onClick={() => setStep(1)}
-                  className="flex-1 h-14 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-semibold rounded-2xl"
+                  className="flex-1 h-14 bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-2xl"
                 >
                   Back
                 </Button>
                 <Button
                   onClick={handleCreate}
                   disabled={!formData.location.name || !formData.time || formData.interests.length === 0 || isSubmitting}
-                  className="flex-1 h-14 bg-gradient-to-r from-orange-500 to-red-500 text-white font-semibold rounded-2xl"
+                  className="flex-1 h-14 bg-orange-600 text-white font-semibold rounded-2xl"
                 >
                   {isSubmitting ? (
                     <span className="flex items-center gap-2">
@@ -1036,7 +1037,7 @@ function MapPlaceholder({ location, isSelectable = false }) {
       
       {/* Map pin */}
       <div className="relative z-10 flex flex-col items-center">
-        <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center shadow-lg shadow-orange-500/30 animate-bounce">
+        <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center shadow-lg animate-bounce">
           <MapPin className="w-5 h-5 text-white" />
         </div>
         <div className="w-3 h-3 bg-orange-500/30 rounded-full mt-1" />

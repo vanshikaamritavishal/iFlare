@@ -77,7 +77,7 @@ function VerifyContent() {
           <p className="text-slate-400 mb-8">{message}</p>
           <Button
             onClick={() => router.push('/flares')}
-            className="w-64 h-14 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-semibold rounded-2xl"
+            className="w-64 h-14 bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-2xl"
           >
             Start Exploring iFlares
           </Button>
@@ -94,7 +94,7 @@ function VerifyContent() {
           <div className="space-y-3 w-64">
             <Button
               onClick={() => router.push('/register')}
-              className="w-full h-14 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-semibold rounded-2xl"
+              className="w-full h-14 bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-2xl"
             >
               Try Again
             </Button>

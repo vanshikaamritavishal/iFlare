@@ -159,7 +159,7 @@ export default function ProfilePage() {
       <div className="px-4 py-6">
         {/* User Info */}
         <div className="flex items-center gap-4 mb-8">
-          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center text-2xl font-bold">
+          <div className="w-16 h-16 rounded-full bg-orange-600 flex items-center justify-center text-2xl font-bold">
             {user?.name?.charAt(0)?.toUpperCase() || 'U'}
           </div>
           <div>
@@ -231,7 +231,7 @@ export default function ProfilePage() {
           <Button
             onClick={handleSaveSettings}
             disabled={selectedInterests.length < 3 || isSaving}
-            className="w-full h-14 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-semibold rounded-2xl"
+            className="w-full h-14 bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-2xl"
           >
             {isSaving ? (
               <span className="flex items-center gap-2">

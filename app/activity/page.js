@@ -169,7 +169,7 @@ export default function ActivityPage() {
             </p>
             <button
               onClick={() => router.push('/flares')}
-              className="mt-4 px-6 py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl font-medium"
+              className="mt-4 px-6 py-3 bg-orange-600 text-white rounded-xl font-medium"
             >
               {activeTab === 'created' ? 'Create iFlare' : 'Explore iFlares'}
             </button>
@@ -199,7 +199,7 @@ export default function ActivityPage() {
                   </div>
 
                   <div className="flex items-start gap-3">
-                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-500/20 to-red-500/20 flex items-center justify-center text-2xl flex-shrink-0">
+                    <div className="w-12 h-12 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-2xl flex-shrink-0">
                       {interestInfo.label?.split(' ')[0] || '🔥'}
                     </div>
                     <div className="flex-1 min-w-0">

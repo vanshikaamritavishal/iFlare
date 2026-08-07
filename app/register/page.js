@@ -188,7 +188,7 @@ export default function RegisterPage() {
             <Button
               onClick={handleNextStep}
               disabled={!formData.name || !formData.email || !formData.password}
-              className="w-full h-14 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-semibold text-lg rounded-2xl disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full h-14 bg-orange-600 hover:bg-orange-700 text-white font-semibold text-lg rounded-2xl disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Continue
               <ArrowRight className="w-5 h-5 ml-2" />
@@ -237,7 +237,7 @@ export default function RegisterPage() {
             <Button
               onClick={handleRegister}
               disabled={selectedInterests.length < 3 || isLoading}
-              className="w-full h-14 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-semibold text-lg rounded-2xl disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full h-14 bg-orange-600 hover:bg-orange-700 text-white font-semibold text-lg rounded-2xl disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? (
                 <span className="flex items-center gap-2">

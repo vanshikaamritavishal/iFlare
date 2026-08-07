@@ -66,11 +66,11 @@ export default function OnboardingWalkthrough() {
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm px-4">
-      <div className="w-full max-w-md bg-gradient-to-br from-slate-900 to-slate-950 border border-slate-800 rounded-3xl shadow-2xl p-6 relative">
+      <div className="w-full max-w-md bg-slate-950 border border-slate-800 rounded-xl shadow-xl p-6 relative">
         {/* Close */}
         <button
           onClick={dismiss}
-          className="absolute top-4 right-4 w-9 h-9 rounded-full bg-slate-800/70 hover:bg-slate-700 flex items-center justify-center text-slate-400 hover:text-white transition-colors"
+          className="absolute top-4 right-4 w-8 h-8 rounded-md bg-slate-900 border border-slate-800 hover:border-slate-700 flex items-center justify-center text-slate-400 hover:text-white transition-colors"
           aria-label="Skip walkthrough"
         >
           <X className="w-4 h-4" />
@@ -78,24 +78,24 @@ export default function OnboardingWalkthrough() {
 
         {/* Icon */}
         <div className="flex justify-center mb-5 mt-2">
-          <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center shadow-lg shadow-orange-500/30">
-            <Icon className="w-10 h-10 text-white" strokeWidth={1.75} />
+          <div className="w-14 h-14 rounded-lg border border-orange-500/40 bg-orange-500/10 flex items-center justify-center">
+            <Icon className="w-7 h-7 text-orange-500" strokeWidth={1.75} />
           </div>
         </div>
 
         {/* Title & body */}
-        <h2 className="text-2xl font-bold text-center text-white mb-3">{slide.title}</h2>
+        <h2 className="text-xl font-semibold text-center text-white mb-3">{slide.title}</h2>
         <p className="text-slate-400 text-sm text-center leading-relaxed mb-8 min-h-[80px]">
           {slide.body}
         </p>
 
         {/* Progress dots */}
-        <div className="flex justify-center gap-2 mb-6">
+        <div className="flex justify-center gap-1.5 mb-6">
           {SLIDES.map((_, i) => (
             <span
               key={i}
-              className={`h-1.5 rounded-full transition-all ${
-                i === step ? 'w-6 bg-orange-500' : 'w-1.5 bg-slate-700'
+              className={`h-1 rounded-full transition-all ${
+                i === step ? 'w-5 bg-orange-500' : 'w-1 bg-slate-700'
               }`}
             />
           ))}
@@ -107,7 +107,7 @@ export default function OnboardingWalkthrough() {
             <Button
               variant="ghost"
               onClick={() => setStep(step - 1)}
-              className="flex-1 h-12 rounded-2xl text-slate-300 hover:text-white hover:bg-slate-800"
+              className="flex-1 h-11 rounded-lg text-slate-300 hover:text-white hover:bg-slate-900 border border-slate-800"
             >
               <ArrowLeft className="w-4 h-4 mr-1" />
               Back
@@ -116,7 +116,7 @@ export default function OnboardingWalkthrough() {
             <Button
               variant="ghost"
               onClick={dismiss}
-              className="flex-1 h-12 rounded-2xl text-slate-500 hover:text-slate-300 hover:bg-slate-800"
+              className="flex-1 h-11 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-900 border border-slate-800"
             >
               Skip
             </Button>
@@ -124,7 +124,7 @@ export default function OnboardingWalkthrough() {
 
           <Button
             onClick={() => (isLast ? dismiss() : setStep(step + 1))}
-            className="flex-1 h-12 rounded-2xl bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-semibold"
+            className="flex-1 h-11 rounded-lg bg-orange-600 hover:bg-orange-700 text-white font-medium"
           >
             {isLast ? "Let's go" : 'Next'}
             {!isLast && <ArrowRight className="w-4 h-4 ml-1" />}
