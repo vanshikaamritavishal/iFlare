@@ -10,6 +10,7 @@ import {
   Home, Bell, User, Check, AlertCircle, Timer
 } from 'lucide-react'
 import { useNotificationContext } from '@/lib/NotificationProvider'
+import OnboardingWalkthrough from '@/components/OnboardingWalkthrough'
 
 // Mock user data (would come from auth context in real app)
 // Will be replaced with actual user data from localStorage
@@ -310,6 +311,9 @@ export default function FlaresPage() {
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 pb-24">
+      {/* First-time user walkthrough */}
+      <OnboardingWalkthrough />
+
       {/* Notification Permission Prompt */}
       {showNotificationPrompt && (
         <div className="fixed top-0 left-0 right-0 z-50 p-4 bg-gradient-to-r from-orange-500 to-red-500">
