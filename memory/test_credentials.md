@@ -24,9 +24,6 @@ Suggested test accounts (agent should REGISTER these fresh via /register):
   - Password: password123
   - Interests: sports, music, tech
 
-Legacy account (from previous session, still allowed to log in):
-- Email: vishaljc@gmail.com
-- Password: password
-  Note: gmail.com is NOT an accepted domain for NEW registrations, but
-  this pre-existing account works. It will only see flares from other
-  @gmail.com hosts (likely none).
+Blocked-domain test:
+- Registering any @gmail.com / @yahoo.com / @outlook.com etc. must fail with
+  a 400 and an error message pointing the user to use a university email.
