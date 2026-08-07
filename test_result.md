@@ -101,3 +101,139 @@
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
+user_problem_statement: |
+  Two changes requested:
+  1. Restrict iFLARE to Indian university students only. A user with @sst.scaler.com should
+     see ONLY flares created by other users with @sst.scaler.com. A user with @iitkgp.ac.in
+     sees only IIT KGP flares. Non-university domains (gmail.com, etc.) must be rejected
+     on new registration (existing users grandfathered in).
+  2. The Explore button on the dashboard (bottom nav) was non-functional. Since the Flares
+     page already has search + browsing, Explore was removed from all 3 nav bars.
+
+backend:
+  - task: "University domain validation on registration"
+    implemented: true
+    working: "NA"
+    file: "app/api/[[...path]]/route.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "POST /api/auth/register now calls resolveUniversity() and rejects emails whose domain is not an Indian university (explicit whitelist in /app/lib/universities.js + any .ac.in / .edu.in TLD accepted). Stores emailDomain and university fields on user."
+
+  - task: "Flare scoping by hostEmailDomain"
+    implemented: true
+    working: "NA"
+    file: "app/api/[[...path]]/route.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "POST /api/flares now looks up the host's email domain and stores hostEmailDomain + hostUniversity on the flare. GET /api/flares accepts ?userId=... and filters query with { hostEmailDomain: <requester's domain> } so users only see flares from their campus."
+
+  - task: "Legacy migration for emailDomain and hostEmailDomain"
+    implemented: true
+    working: "NA"
+    file: "app/api/[[...path]]/route.js"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "ensureMigrated() runs once per server start: backfills emailDomain on legacy users and hostEmailDomain on legacy flares by joining with users collection."
+
+frontend:
+  - task: "Explore nav button removed from all pages"
+    implemented: true
+    working: "NA"
+    file: "app/flares/page.js, app/activity/page.js, app/profile/page.js"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Broken Explore nav item (no onClick) removed from all 3 bottom nav bars. Nav is now Flares / Activity / Profile."
+
+  - task: "Register page shows college-email guidance"
+    implemented: true
+    working: "NA"
+    file: "app/register/page.js"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Email field placeholder + helper text now guide users to enter an Indian college email. Backend errors are shown inline."
+
+  - task: "Profile page shows university (read-only) instead of Community/Locality toggle"
+    implemented: true
+    working: "NA"
+    file: "app/profile/page.js"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Removed obsolete Community vs Locality toggle. Added a read-only card showing the user's university (name + @domain)."
+
+  - task: "Flares page fetch scoped by userId"
+    implemented: true
+    working: "NA"
+    file: "app/flares/page.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "GET /api/flares call now includes userId param so the backend can scope by domain. Removed sample-flare merging so university filter isn't bypassed by client-side demo data."
+
+metadata:
+  created_by: "main_agent"
+  version: "1.0"
+  test_sequence: 0
+  run_ui: false
+
+test_plan:
+  current_focus:
+    - "University domain validation on registration"
+    - "Flare scoping by hostEmailDomain"
+    - "Legacy migration for emailDomain and hostEmailDomain"
+    - "Flares page fetch scoped by userId"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+  - agent: "main"
+    message: |
+      Please test the following backend behavior end-to-end (curl-equivalent):
+
+      1) Registration domain gate
+         a) POST /api/auth/register with email "eve@gmail.com" (or any random non-university domain) should return 400 with the university-restriction message.
+         b) POST /api/auth/register with email "alice.test@sst.scaler.com" should succeed and return user.university === "Scaler School of Technology" and user.emailDomain === "sst.scaler.com".
+         c) Register another Scaler user "bob.test@sst.scaler.com" - success.
+         d) Register a different-university user "chandan.test@iitkgp.ac.in" - success with university reflecting IIT Kharagpur.
+         e) Also verify sub-domain acceptance: any random @something.ac.in should be accepted (e.g. random@testuni.ac.in) since .ac.in is an Indian academic TLD.
+
+      2) Flare scoping
+         a) Login as alice, POST /api/flares with a flare - verify the returned flare has hostEmailDomain === "sst.scaler.com".
+         b) Login as bob, GET /api/flares?interests=sports&userId=<bob's id> - alice's flare MUST appear.
+         c) Login as chandan (IIT KGP), GET /api/flares?userId=<chandan's id> - alice's flare must NOT appear.
+         d) Have chandan create a flare - verify alice/bob cannot see it.
+
+      3) Legacy migration
+         The DB may contain older users without emailDomain and older flares without hostEmailDomain.
+         After the first API call following server restart, ensureMigrated() should backfill these.
+         You can verify by querying /api/flares as a legacy user (e.g. vishaljc@gmail.com if present)
+         and confirming no crashes.
+
+      Credentials & test-plan details in /app/memory/test_credentials.md.

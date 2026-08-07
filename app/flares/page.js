@@ -173,38 +173,35 @@ export default function FlaresPage() {
     }
   }, [hasAskedPermission, permission])
 
-  // Initialize flares - fetch from database AND add sample data
+  // Initialize flares - fetch from database (scoped to user's university via API)
   useEffect(() => {
     const fetchFlares = async () => {
       try {
         const token = localStorage.getItem('iflare_token')
         const interests = currentUser.interests.join(',')
-        
-        // Fetch real flares from database
-        const response = await fetch(`/api/flares?interests=${interests}`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        })
-        
+
+        // Fetch real flares from database - server scopes by requesting user's email domain
+        const response = await fetch(
+          `/api/flares?interests=${interests}&userId=${encodeURIComponent(currentUser.id || '')}`,
+          { headers: { 'Authorization': `Bearer ${token}` } }
+        )
+
         if (response.ok) {
           const dbFlares = await response.json()
-          // Combine with sample flares for demo
-          const sampleFlares = generateSampleFlares()
-          // Filter out any duplicates by ID
-          const dbFlareIds = new Set(dbFlares.map(f => f.id))
-          const uniqueSampleFlares = sampleFlares.filter(f => !dbFlareIds.has(f.id))
-          setFlares([...dbFlares, ...uniqueSampleFlares])
+          setFlares(Array.isArray(dbFlares) ? dbFlares : [])
         } else {
-          // Fallback to sample flares
-          setFlares(generateSampleFlares())
+          setFlares([])
         }
       } catch (err) {
         console.error('Error fetching flares:', err)
-        setFlares(generateSampleFlares())
+        setFlares([])
       }
     }
-    
-    fetchFlares()
-  }, [currentUser.interests])
+
+    if (currentUser?.id) {
+      fetchFlares()
+    }
+  }, [currentUser.interests, currentUser.id])
 
   // Update current time every minute for countdown
   useEffect(() => {
@@ -481,10 +478,6 @@ export default function FlaresPage() {
           <button className="flex flex-col items-center gap-1 text-orange-500">
             <Radar className="w-6 h-6" />
             <span className="text-xs">Flares</span>
-          </button>
-          <button className="flex flex-col items-center gap-1 text-slate-500">
-            <Search className="w-6 h-6" />
-            <span className="text-xs">Explore</span>
           </button>
           <button 
             onClick={() => router.push('/activity')}

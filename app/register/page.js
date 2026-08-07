@@ -152,7 +152,7 @@ export default function RegisterPage() {
               </div>
             </div>
             <div>
-              <label className="text-sm text-slate-400 mb-2 block">Email</label>
+              <label className="text-sm text-slate-400 mb-2 block">College Email</label>
               <div className="relative">
                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
                 <Input
@@ -160,10 +160,13 @@ export default function RegisterPage() {
                   type="email"
                   value={formData.email}
                   onChange={handleInputChange}
-                  placeholder="Enter your email"
+                  placeholder="e.g. you@sst.scaler.com or you@iitkgp.ac.in"
                   className="h-14 pl-12 bg-slate-800/50 border-slate-700 rounded-xl text-white placeholder:text-slate-500 focus:border-orange-500"
                 />
               </div>
+              <p className="text-xs text-slate-500 mt-2">
+                iFLARE is exclusive to students of Indian universities. Use your official college email.
+              </p>
             </div>
             <div>
               <label className="text-sm text-slate-400 mb-2 block">Password</label>

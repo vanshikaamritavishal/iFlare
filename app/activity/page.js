@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { 
-  Radar, Bell, Search, User, ArrowLeft, MapPin, Clock, 
+  Radar, Bell, User, ArrowLeft, MapPin, Clock, 
   Users, Calendar, Loader2, Plus, ChevronRight
 } from 'lucide-react'
 
@@ -253,10 +253,6 @@ export default function ActivityPage() {
           >
             <Radar className="w-6 h-6" />
             <span className="text-xs">Flares</span>
-          </button>
-          <button className="flex flex-col items-center gap-1 text-slate-500">
-            <Search className="w-6 h-6" />
-            <span className="text-xs">Explore</span>
           </button>
           <button className="flex flex-col items-center gap-1 text-orange-500">
             <Bell className="w-6 h-6" />

@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { NextResponse } from 'next/server'
 import { Resend } from 'resend'
 import crypto from 'crypto'
+import { resolveUniversity, getDomainFromEmail } from '@/lib/universities'
 
 // MongoDB connection
 let client
@@ -15,6 +16,54 @@ async function connectToMongo() {
     db = client.db(process.env.DB_NAME || 'iflare')
   }
   return db
+}
+
+// One-time backfill so legacy users/flares work with the new
+// university-domain filtering. Runs idempotently on the first request
+// after each server start.
+let migrated = false
+async function ensureMigrated(db) {
+  if (migrated) return
+  try {
+    // Backfill emailDomain on users
+    const legacyUsers = await db.collection('users')
+      .find({ emailDomain: { $exists: false } })
+      .project({ id: 1, email: 1 })
+      .toArray()
+    for (const u of legacyUsers) {
+      const domain = getDomainFromEmail(u.email)
+      if (domain) {
+        await db.collection('users').updateOne(
+          { id: u.id },
+          { $set: { emailDomain: domain } }
+        )
+      }
+    }
+
+    // Backfill hostEmailDomain on flares by looking up the host user
+    const legacyFlares = await db.collection('flares')
+      .find({ hostEmailDomain: { $exists: false } })
+      .toArray()
+    for (const flare of legacyFlares) {
+      const hostId = flare?.host?.id
+      if (!hostId) continue
+      const host = await db.collection('users').findOne(
+        { id: hostId },
+        { projection: { email: 1, emailDomain: 1 } }
+      )
+      const domain = host?.emailDomain || getDomainFromEmail(host?.email)
+      if (domain) {
+        await db.collection('flares').updateOne(
+          { id: flare.id },
+          { $set: { hostEmailDomain: domain } }
+        )
+      }
+    }
+  } catch (e) {
+    console.error('Migration warning (non-fatal):', e)
+  } finally {
+    migrated = true
+  }
 }
 
 // Initialize Resend
@@ -120,6 +169,7 @@ async function handleRoute(request, { params }) {
 
   try {
     const db = await connectToMongo()
+    await ensureMigrated(db)
 
     // Root endpoint
     if ((route === '/root' || route === '/') && method === 'GET') {
@@ -155,6 +205,15 @@ async function handleRoute(request, { params }) {
         ))
       }
 
+      // University domain validation - iFLARE is only for Indian college students
+      const uni = resolveUniversity(email)
+      if (!uni.valid) {
+        return handleCORS(NextResponse.json(
+          { error: uni.reason || 'Please register with a valid Indian university email address.' },
+          { status: 400 }
+        ))
+      }
+
       // Check if user already exists
       const existingUser = await db.collection('users').findOne({ email: email.toLowerCase() })
       if (existingUser) {
@@ -171,6 +230,8 @@ async function handleRoute(request, { params }) {
         email: email.toLowerCase(),
         password: hashPassword(password),
         interests,
+        emailDomain: uni.domain,
+        university: uni.name,
         isVerified: true, // Auto-verified for testing
         createdAt: new Date(),
         updatedAt: new Date()
@@ -187,7 +248,9 @@ async function handleRoute(request, { params }) {
           id: user.id,
           name: user.name,
           email: user.email,
-          interests: user.interests
+          interests: user.interests,
+          university: user.university,
+          emailDomain: user.emailDomain
         },
         token: sessionToken
       }))
@@ -289,7 +352,9 @@ async function handleRoute(request, { params }) {
           id: user.id,
           name: user.name,
           email: user.email,
-          interests: user.interests
+          interests: user.interests,
+          university: user.university || null,
+          emailDomain: user.emailDomain || getDomainFromEmail(user.email)
         },
         token: sessionToken
       }))
@@ -378,7 +443,9 @@ async function handleRoute(request, { params }) {
             id: user.id,
             name: user.name,
             email: user.email,
-            interests: user.interests
+            interests: user.interests,
+            university: user.university || null,
+            emailDomain: user.emailDomain || getDomainFromEmail(user.email)
           }
         }))
       } catch (e) {
@@ -541,6 +608,19 @@ async function handleRoute(request, { params }) {
         ))
       }
 
+      // Look up host to determine their university (email) domain so the
+      // flare stays scoped to their campus community.
+      let hostEmailDomain = null
+      let hostUniversity = null
+      if (hostId) {
+        const hostUser = await db.collection('users').findOne(
+          { id: hostId },
+          { projection: { email: 1, emailDomain: 1, university: 1 } }
+        )
+        hostEmailDomain = hostUser?.emailDomain || getDomainFromEmail(hostUser?.email) || null
+        hostUniversity = hostUser?.university || null
+      }
+
       const flare = {
         id: uuidv4(),
         title,
@@ -549,6 +629,8 @@ async function handleRoute(request, { params }) {
         location,
         startTime: new Date(startTime),
         host: { id: hostId, name: hostName },
+        hostEmailDomain,
+        hostUniversity,
         attendees: [],
         maxAttendees,
         createdAt: new Date(),
@@ -557,19 +639,36 @@ async function handleRoute(request, { params }) {
 
       await db.collection('flares').insertOne(flare)
 
-      return handleCORS(NextResponse.json(flare))
+      const { _id, ...cleaned } = flare
+      return handleCORS(NextResponse.json(cleaned))
     }
 
-    // Get flares
+    // Get flares - scoped to the requesting user's university (email domain)
     if (route === '/flares' && method === 'GET') {
       const url = new URL(request.url)
       const interests = url.searchParams.get('interests')?.split(',') || []
+      const userId = url.searchParams.get('userId')
+
+      // Resolve the requester's email domain so we can restrict visibility
+      let userDomain = null
+      if (userId) {
+        const requester = await db.collection('users').findOne(
+          { id: userId },
+          { projection: { email: 1, emailDomain: 1 } }
+        )
+        userDomain = requester?.emailDomain || getDomainFromEmail(requester?.email) || null
+      }
 
       // Build query - get all flares (frontend will filter by time)
       const query = {}
 
       if (interests.length > 0 && interests[0] !== '') {
         query.interests = { $in: interests }
+      }
+
+      // Scope by university (email domain) when we know it
+      if (userDomain) {
+        query.hostEmailDomain = userDomain
       }
 
       const flares = await db.collection('flares')

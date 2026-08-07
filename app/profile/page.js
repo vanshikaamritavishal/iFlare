@@ -4,8 +4,8 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { 
-  Radar, User, Bell, Search, ArrowLeft, Check, 
-  LogOut, Loader2, Globe, Users, MapPin, Building
+  Radar, User, Bell, ArrowLeft, Check, 
+  LogOut, Loader2, Building
 } from 'lucide-react'
 
 // All interest categories
@@ -28,7 +28,6 @@ export default function ProfilePage() {
   const router = useRouter()
   const [user, setUser] = useState(null)
   const [selectedInterests, setSelectedInterests] = useState([])
-  const [visibilityMode, setVisibilityMode] = useState('locality') // 'community' or 'locality'
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [hasChanges, setHasChanges] = useState(false)
@@ -55,7 +54,6 @@ export default function ProfilePage() {
         const userData = JSON.parse(storedUser)
         setUser(userData)
         setSelectedInterests(userData.interests || [])
-        setVisibilityMode(userData.visibilityMode || 'locality')
       } catch (err) {
         console.error('Error loading profile:', err)
       } finally {
@@ -71,25 +69,15 @@ export default function ProfilePage() {
       const newInterests = prev.includes(interestId)
         ? prev.filter(id => id !== interestId)
         : [...prev, interestId]
-      
+
       // Check if different from original
       const originalInterests = user?.interests || []
       const isDifferent = newInterests.length !== originalInterests.length ||
-        newInterests.some(i => !originalInterests.includes(i)) ||
-        visibilityMode !== (user?.visibilityMode || 'locality')
+        newInterests.some(i => !originalInterests.includes(i))
       setHasChanges(isDifferent)
-      
+
       return newInterests
     })
-  }
-
-  const handleVisibilityChange = (mode) => {
-    setVisibilityMode(mode)
-    const originalMode = user?.visibilityMode || 'locality'
-    const originalInterests = user?.interests || []
-    const interestsDifferent = selectedInterests.length !== originalInterests.length ||
-      selectedInterests.some(i => !originalInterests.includes(i))
-    setHasChanges(mode !== originalMode || interestsDifferent)
   }
 
   const handleSaveSettings = async () => {
@@ -109,14 +97,13 @@ export default function ProfilePage() {
         },
         body: JSON.stringify({
           userId: user.id,
-          interests: selectedInterests,
-          visibilityMode: visibilityMode
+          interests: selectedInterests
         })
       })
 
       if (response.ok) {
         // Update local storage and state
-        const updatedUser = { ...user, interests: selectedInterests, visibilityMode }
+        const updatedUser = { ...user, interests: selectedInterests }
         localStorage.setItem('iflare_user', JSON.stringify(updatedUser))
         setUser(updatedUser)
         setHasChanges(false)
@@ -181,77 +168,30 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* Visibility Settings */}
+        {/* University (read-only, derived from email domain) */}
         <div className="mb-8">
-          <h3 className="text-lg font-semibold mb-2">iFlare Visibility</h3>
+          <h3 className="text-lg font-semibold mb-2">Your University</h3>
           <p className="text-sm text-slate-400 mb-4">
-            Choose who can see and publish iFlares with you
+            iFlares are shared only within your campus community.
           </p>
 
-          <div className="space-y-3">
-            {/* Community Option */}
-            <button
-              onClick={() => handleVisibilityChange('community')}
-              className={`w-full p-4 rounded-2xl border-2 transition-all text-left ${
-                visibilityMode === 'community'
-                  ? 'border-orange-500 bg-orange-500/10'
-                  : 'border-slate-700 bg-slate-800/50 hover:border-slate-600'
-              }`}
-            >
-              <div className="flex items-start gap-3">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                  visibilityMode === 'community' ? 'bg-orange-500' : 'bg-slate-700'
-                }`}>
-                  <Building className="w-5 h-5 text-white" />
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-semibold">My Community Only</h4>
-                    {visibilityMode === 'community' && (
-                      <Check className="w-5 h-5 text-orange-500" />
-                    )}
-                  </div>
-                  <p className="text-sm text-slate-400 mt-1">
-                    See & publish iFlares only with people from your organization
-                  </p>
-                  <p className="text-xs text-orange-400 mt-2 font-medium">
-                    {getEmailDomain(user?.email)} community
-                  </p>
-                </div>
+          <div className="w-full p-4 rounded-2xl border-2 border-orange-500/40 bg-orange-500/5">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-orange-500">
+                <Building className="w-5 h-5 text-white" />
               </div>
-            </button>
-
-            {/* Locality Option */}
-            <button
-              onClick={() => handleVisibilityChange('locality')}
-              className={`w-full p-4 rounded-2xl border-2 transition-all text-left ${
-                visibilityMode === 'locality'
-                  ? 'border-orange-500 bg-orange-500/10'
-                  : 'border-slate-700 bg-slate-800/50 hover:border-slate-600'
-              }`}
-            >
-              <div className="flex items-start gap-3">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                  visibilityMode === 'locality' ? 'bg-orange-500' : 'bg-slate-700'
-                }`}>
-                  <MapPin className="w-5 h-5 text-white" />
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-semibold">Open to Nearby</h4>
-                    {visibilityMode === 'locality' && (
-                      <Check className="w-5 h-5 text-orange-500" />
-                    )}
-                  </div>
-                  <p className="text-sm text-slate-400 mt-1">
-                    See & publish iFlares with everyone within your locality
-                  </p>
-                  <p className="text-xs text-orange-400 mt-2 font-medium">
-                    📍 Within 2km of your location
-                  </p>
-                </div>
+              <div className="flex-1">
+                <h4 className="font-semibold">
+                  {user?.university || 'Your Campus Community'}
+                </h4>
+                <p className="text-xs text-orange-400 mt-2 font-medium">
+                  {getEmailDomain(user?.email)} community
+                </p>
+                <p className="text-xs text-slate-500 mt-2">
+                  You’ll only see and be seen by other students from this domain.
+                </p>
               </div>
-            </button>
+            </div>
           </div>
         </div>
 
@@ -314,10 +254,6 @@ export default function ProfilePage() {
           >
             <Radar className="w-6 h-6" />
             <span className="text-xs">Flares</span>
-          </button>
-          <button className="flex flex-col items-center gap-1 text-slate-500">
-            <Search className="w-6 h-6" />
-            <span className="text-xs">Explore</span>
           </button>
           <button 
             onClick={() => router.push('/activity')}
