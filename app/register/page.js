@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Radar, ArrowRight, ArrowLeft, Check, Mail, User, Lock, Loader2 } from 'lucide-react'
+import { resolveUniversity } from '@/lib/universities'
 
 // Interest categories for building user persona
 const INTEREST_CATEGORIES = [
@@ -48,13 +49,33 @@ export default function RegisterPage() {
   }
 
   const handleNextStep = () => {
-    if (formData.name && formData.email && formData.password) {
-      if (formData.password.length < 6) {
-        setError('Password must be at least 6 characters')
-        return
-      }
-      setStep(2)
+    // Basic completeness check
+    if (!formData.name.trim() || !formData.email.trim() || !formData.password) {
+      setError('Please fill in all fields')
+      return
     }
+    if (formData.password.length < 6) {
+      setError('Password must be at least 6 characters')
+      return
+    }
+    // Email format check
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(formData.email.trim())) {
+      setError('Please enter a valid email address')
+      return
+    }
+    // University domain gate — blocks gmail / yahoo / outlook etc. RIGHT HERE
+    // so the user can never proceed to the interests step with a bad email.
+    const uni = resolveUniversity(formData.email)
+    if (!uni.valid) {
+      setError(
+        uni.reason ||
+          'iFLARE is exclusive to Indian college students. Please use your official university email.'
+      )
+      return
+    }
+    setError('')
+    setStep(2)
   }
 
   const handleRegister = async () => {

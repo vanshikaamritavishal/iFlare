@@ -323,6 +323,16 @@ async function handleRoute(request, { params }) {
         ))
       }
 
+      // Reject blocked personal-email domains (gmail, yahoo, outlook etc.)
+      // even at login-time, in case any legacy accounts slip through.
+      const uni = resolveUniversity(email)
+      if (!uni.valid) {
+        return handleCORS(NextResponse.json(
+          { error: uni.reason || 'This email domain is not allowed on iFLARE.' },
+          { status: 403 }
+        ))
+      }
+
       // Find user
       const user = await db.collection('users').findOne({ 
         email: email.toLowerCase() 
