@@ -3,11 +3,11 @@
 > **Real connections. Right now.**
 >
 > A mobile-first web app that lets Indian college students spark
-> spontaneous, interest-based meetups (called **iFlares**) with peers from
-> **their own university only**.
+> spontaneous, interest-based meetups with peers from
+> **their own university**.
 
 <p align="center">
-  <em>Study buddies, gym partners, coffee runs, cycling groups, Catan nights —
+  <em>Study buddies, gym partners, coffee runs, cycling groups, game nights —
   all discovered spontaneously within your campus community.</em>
 </p>
 
@@ -15,28 +15,22 @@
 
 ## ✨ Features
 
-- **University-scoped feed** — a student registered with `@sst.scaler.com`
-  only sees iFlares created by other Scaler students. IIT KGP students only
-  see IIT KGP flares. And so on.
+- **University-scoped feed** — a student registered with their institute's domain can only view other Flares in their college. IIT KGP students only
+  see IIT KGP Flares, and so on.
 - **Curated Indian-university whitelist** — IITs, NITs, IIITs, IIMs, BITS,
   VIT, Manipal, Amity, Ashoka, Scaler, and every `.ac.in` / `.edu.in`
   campus is accepted. Personal email providers (gmail, yahoo, outlook,
   hotmail, icloud, …) are blocked at every layer.
-- **Create & join iFlares** — title, description, venue, start time,
-  interest tags, and party size (2–10).
-- **Activity tab** — shows every flare you’ve created and every one you’ve
-  joined, split into tabs.
+- **Create & join iFlares** — title, venue, time,
+  interest tags, and party size.
+- **Activity tab** — shows every Flare you’ve created or joined split by tabs
 - **Interest-based ranking** — your interests build a persona that
-  influences what surfaces first in the Flares feed.
-- **In-app notifications** — bell + unread badge alert you to new flares
+  influences what surfaces first in the Flares' feed.
+- **In-app notifications** — bell + unread badge alert you to new Flares
   matching your interests.
-- **Per-iFlare chat** — a minimal group chat lives inside every iFlare
-  detail sheet. Only the host and attendees can read or write; messages
-  poll every 6 s while the sheet is open so the app stays quiet when
-  you're not looking. Signal, not noise: no reactions, typing indicators,
-  or read receipts.
+- **Per-iFlare chat** — a minimal group chat lives inside every Flare.
 - **First-time walkthrough** — a 5-slide intro modal guides new users
-  through the app, once per browser.
+  through the app.
 
 ---
 

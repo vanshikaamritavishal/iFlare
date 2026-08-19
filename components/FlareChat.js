@@ -196,11 +196,13 @@ export default function FlareChat({ flareId, currentUser }) {
                       : 'bg-slate-800 text-slate-100'
                   } ${m._pending ? 'opacity-70' : ''}`}
                 >
-                  {!mine && (
-                    <div className="text-[11px] font-medium text-slate-300 mb-0.5">
-                      {m.senderName}
-                    </div>
-                  )}
+                  <div
+                    className={`text-[11px] font-medium mb-0.5 ${
+                      mine ? 'text-orange-100/90' : 'text-slate-300'
+                    }`}
+                  >
+                    {mine ? `${m.senderName} (you)` : m.senderName}
+                  </div>
                   <div className="whitespace-pre-wrap break-words">{m.text}</div>
                   <div
                     className={`text-[10px] mt-1 ${

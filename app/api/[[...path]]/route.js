@@ -71,8 +71,11 @@ async function ensureMigrated(db) {
 }
 
 // Helper: verify that `userId` can access `flareId`'s chat.
-// A user can access if they are the host OR an attendee, AND their email
-// domain matches the flare's hostEmailDomain (cross-campus safety).
+// Rule (per product spec): only the host or an attendee of the flare may
+// read/write the chat. University scoping is already enforced by the
+// feed endpoint (`GET /flares`), so no additional domain check is done
+// here — that was causing false 403s for legacy flares that lack a
+// stamped hostEmailDomain.
 async function assertFlareChatAccess(db, flareId, userId) {
   if (!userId) return { ok: false, status: 401, error: 'userId is required' }
   const flare = await db.collection('flares').findOne({ id: flareId })
@@ -83,11 +86,6 @@ async function assertFlareChatAccess(db, flareId, userId) {
     { projection: { id: 1, name: 1, email: 1, emailDomain: 1 } }
   )
   if (!user) return { ok: false, status: 401, error: 'User not found' }
-
-  const userDomain = user.emailDomain || getDomainFromEmail(user.email)
-  if (flare.hostEmailDomain && userDomain && flare.hostEmailDomain !== userDomain) {
-    return { ok: false, status: 403, error: 'You cannot access this iFlare chat' }
-  }
 
   const isHost = flare?.host?.id === userId
   const isAttendee = Array.isArray(flare.attendees) && flare.attendees.some(a => a.id === userId)
