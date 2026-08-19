@@ -16,9 +16,9 @@ import FlareChat from '@/components/FlareChat'
 // Mock user data (would come from auth context in real app)
 // Will be replaced with actual user data from localStorage
 const DEFAULT_USER = {
-  id: 'user-1',
-  name: 'John Doe',
-  interests: ['sports', 'music', 'food', 'tech', 'wellness']
+  id: null,
+  name: '',
+  interests: []
 }
 
 // Interest categories mapping
@@ -161,6 +161,27 @@ export default function FlaresPage() {
       } catch (e) {
         console.error('Error parsing user data')
       }
+    }
+  }, [])
+
+  // If arriving from the Activity page with a specific flare to open,
+  // pick it up from sessionStorage and open its detail modal.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const raw = sessionStorage.getItem('iflare_open_flare')
+    if (!raw) return
+    try {
+      const flareToOpen = JSON.parse(raw)
+      if (flareToOpen && flareToOpen.id) {
+        setFlares(prev =>
+          prev.some(f => f.id === flareToOpen.id) ? prev : [flareToOpen, ...prev]
+        )
+        setSelectedFlare(flareToOpen)
+      }
+    } catch (e) {
+      // ignore malformed payloads
+    } finally {
+      sessionStorage.removeItem('iflare_open_flare')
     }
   }, [])
 
@@ -416,6 +437,10 @@ export default function FlaresPage() {
           <Radar className="w-4 h-4" />
           <span>iFlares matching your interests • {filteredFlares.length} found</span>
         </div>
+        <p className="text-xs text-orange-300/80 mt-1 flex items-center gap-1.5">
+          <Clock className="w-3 h-3" />
+          iFlares appear here 90 minutes before they start and disappear once they begin.
+        </p>
       </div>
 
       {/* Urgent iFlares - Starting Soon */}
@@ -614,13 +639,21 @@ function FlareDetailModal({ flare, onClose, onJoin, currentUser, timeInfo, getUr
             </div>
           </div>
           
-          <div className="absolute bottom-4 left-4 right-4 bg-slate-900/90 backdrop-blur rounded-xl p-3 flex items-center gap-3">
-            <MapPin className="w-5 h-5 text-orange-400" />
-            <div>
-              <p className="font-medium text-sm">{flare.location.name}</p>
-              <p className="text-xs text-slate-400">Tap for directions</p>
-            </div>
-            <Navigation className="w-5 h-5 text-orange-400 ml-auto" />
+          <div className="absolute bottom-4 left-4 right-4">
+            <a
+              href={buildMapsUrl(flare.location)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-3 bg-slate-900/90 backdrop-blur rounded-xl p-3 hover:bg-slate-800/90 transition-colors"
+              aria-label="Open venue in Google Maps"
+            >
+              <MapPin className="w-5 h-5 text-orange-400 flex-shrink-0" />
+              <div className="min-w-0 flex-1">
+                <p className="font-medium text-sm truncate">{flare.location.name}</p>
+                <p className="text-xs text-orange-400">Open in Google Maps</p>
+              </div>
+              <Navigation className="w-5 h-5 text-orange-400 ml-auto flex-shrink-0" />
+            </a>
           </div>
         </div>
 
@@ -1055,13 +1088,22 @@ function MapPlaceholder({ location, isSelectable = false }) {
           <p className="text-sm text-white truncate">{location.name}</p>
         </div>
       )}
-      
-      {/* Coming soon badge */}
-      {isSelectable && (
-        <div className="absolute top-2 right-2 bg-orange-500/20 border border-orange-500/30 rounded-lg px-2 py-1">
-          <span className="text-xs text-orange-400">Maps Coming Soon</span>
-        </div>
-      )}
     </div>
   )
+}
+
+// Build a Google Maps URL for the given location. Uses lat/lng when we
+// have real coordinates; falls back to a search on the venue name.
+// No API key required.
+function buildMapsUrl(location) {
+  if (!location) return 'https://www.google.com/maps'
+  const { name, lat, lng } = location
+  const hasCoords = typeof lat === 'number' && typeof lng === 'number' && !(lat === 0 && lng === 0)
+  if (hasCoords) {
+    const q = name
+      ? `${encodeURIComponent(name)}@${lat},${lng}`
+      : `${lat},${lng}`
+    return `https://www.google.com/maps/search/?api=1&query=${q}`
+  }
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(name || '')}`
 }

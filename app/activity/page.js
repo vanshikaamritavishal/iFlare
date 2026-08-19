@@ -180,11 +180,29 @@ export default function ActivityPage() {
               const { date, time } = formatDateTime(flare.startTime)
               const interestInfo = INTEREST_MAP[flare.interests?.[0]] || {}
               const isCreator = isCreatedByUser(flare)
-              
+
+              const openFlare = () => {
+                try {
+                  sessionStorage.setItem('iflare_open_flare', JSON.stringify(flare))
+                } catch (e) {
+                  // sessionStorage might be unavailable — still navigate
+                }
+                router.push('/flares')
+              }
+
               return (
                 <div
                   key={flare.id}
-                  className="bg-slate-800/50 rounded-2xl p-4 border border-slate-700/50"
+                  role="button"
+                  tabIndex={0}
+                  onClick={openFlare}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      openFlare()
+                    }
+                  }}
+                  className="bg-slate-800/50 rounded-2xl p-4 border border-slate-700/50 cursor-pointer hover:border-orange-500/40 hover:bg-slate-800/70 transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500/40"
                 >
                   {/* Badge */}
                   <div className="flex items-center justify-between mb-3">
