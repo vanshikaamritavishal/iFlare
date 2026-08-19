@@ -63,6 +63,11 @@ async function ensureMigrated(db) {
     // Ensure indexes for chat (idempotent — createIndex is a no-op if exists)
     await db.collection('messages').createIndex({ flareId: 1, createdAt: 1 })
     await db.collection('messages').createIndex({ id: 1 }, { unique: true })
+
+    // Ensure indexes for signup OTPs.
+    // TTL auto-cleans expired pending signups; unique keeps one active per email.
+    await db.collection('otps').createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 })
+    await db.collection('otps').createIndex({ email: 1 }, { unique: true })
   } catch (e) {
     console.error('Migration warning (non-fatal):', e)
   } finally {
@@ -185,6 +190,69 @@ async function sendVerificationEmail(email, name, token) {
   }
 }
 
+// ---------- Signup OTP helpers ----------
+
+// 6-digit numeric OTP.
+function generateOtp() {
+  // 100000..999999 inclusive
+  const n = 100000 + crypto.randomInt(0, 900000)
+  return String(n)
+}
+
+// SHA-256 hash of OTP (kept out of DB in plaintext).
+function hashOtp(otp) {
+  return crypto.createHash('sha256').update(String(otp)).digest('hex')
+}
+
+// Send the OTP email via Resend. Returns { success, error }.
+async function sendOtpEmail(email, name, otp) {
+  try {
+    const { data, error } = await resend.emails.send({
+      from: 'iFLARE <onboarding@resend.dev>',
+      to: [email],
+      subject: `${otp} is your iFLARE verification code`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="utf-8"></head>
+        <body style="margin:0;padding:0;background:#0f172a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;">
+          <div style="max-width:520px;margin:0 auto;padding:40px 20px;">
+            <div style="text-align:center;margin-bottom:32px;">
+              <h1 style="color:#f97316;font-size:28px;margin:0;">iFLARE</h1>
+              <p style="color:#94a3b8;font-size:13px;margin-top:6px;">Real connections. Right now.</p>
+            </div>
+            <div style="background:#0b1220;border:1px solid #1f2937;border-radius:14px;padding:28px;">
+              <h2 style="color:#fff;font-size:20px;margin:0 0 12px 0;">Hi ${name || 'there'},</h2>
+              <p style="color:#94a3b8;font-size:15px;line-height:1.6;margin:0 0 20px 0;">
+                Use the following one-time code to verify your email and finish creating your iFLARE account.
+              </p>
+              <div style="text-align:center;padding:20px;background:#111827;border:1px solid #1f2937;border-radius:12px;margin:0 0 20px 0;">
+                <div style="color:#f97316;font-size:34px;font-weight:700;letter-spacing:10px;">${otp}</div>
+              </div>
+              <p style="color:#64748b;font-size:13px;line-height:1.6;margin:0;">
+                This code expires in <strong style="color:#94a3b8;">10 minutes</strong> and can be used only once.
+                If you did not request this, you can safely ignore this email.
+              </p>
+            </div>
+            <p style="color:#475569;font-size:11px;text-align:center;margin-top:24px;">
+              Sent by iFLARE — please do not reply to this email.
+            </p>
+          </div>
+        </body>
+        </html>
+      `
+    })
+    if (error) {
+      console.error('OTP Resend error:', error)
+      return { success: false, error }
+    }
+    return { success: true, data }
+  } catch (error) {
+    console.error('OTP send error:', error)
+    return { success: false, error }
+  }
+}
+
 // OPTIONS handler for CORS
 export async function OPTIONS() {
   return handleCORS(new NextResponse(null, { status: 200 }))
@@ -208,25 +276,42 @@ async function handleRoute(request, { params }) {
     // ==================== AUTH ROUTES ====================
 
     // Register new user
+    // ---- Deprecated: /auth/register now requires OTP verification ----
+    // Old direct-signup endpoint is closed to prevent domain-only fabrication.
     if (route === '/auth/register' && method === 'POST') {
-      const body = await request.json()
+      return handleCORS(NextResponse.json(
+        { error: 'This endpoint is no longer used. Please use /auth/signup/start and /auth/signup/verify.' },
+        { status: 410 }
+      ))
+    }
+
+    // ============ SIGNUP OTP FLOW ============
+    // Step 1: /auth/signup/start
+    //   Validates all inputs (domain, password, interests, email uniqueness),
+    //   stores a pending-signup keyed by email, and emails a 6-digit OTP.
+    // Step 2: /auth/signup/verify
+    //   Compares OTP; on success creates the user with isVerified=true and
+    //   returns the same { user, token } shape login uses. Old /auth/login
+    //   flow is untouched.
+    // Step 3: /auth/signup/resend
+    //   Rate-limited resend of the OTP for an existing pending signup.
+
+    if (route === '/auth/signup/start' && method === 'POST') {
+      const body = await request.json().catch(() => ({}))
       const { name, email, password, interests } = body
 
-      // Validation
       if (!name || !email || !password || !interests) {
         return handleCORS(NextResponse.json(
           { error: 'All fields are required' },
           { status: 400 }
         ))
       }
-
       if (password.length < 6) {
         return handleCORS(NextResponse.json(
           { error: 'Password must be at least 6 characters' },
           { status: 400 }
         ))
       }
-
       if (!Array.isArray(interests) || interests.length < 3) {
         return handleCORS(NextResponse.json(
           { error: 'Please select at least 3 interests' },
@@ -234,7 +319,7 @@ async function handleRoute(request, { params }) {
         ))
       }
 
-      // University domain validation - iFLARE is only for Indian college students
+      // Same institutional-domain gate as before.
       const uni = resolveUniversity(email)
       if (!uni.valid) {
         return handleCORS(NextResponse.json(
@@ -243,45 +328,249 @@ async function handleRoute(request, { params }) {
         ))
       }
 
-      // Check if user already exists
-      const existingUser = await db.collection('users').findOne({ email: email.toLowerCase() })
-      if (existingUser) {
+      const normalizedEmail = email.toLowerCase().trim()
+
+      // Uniqueness check against verified accounts.
+      const existing = await db.collection('users').findOne({ email: normalizedEmail })
+      if (existing) {
         return handleCORS(NextResponse.json(
           { error: 'An account with this email already exists' },
           { status: 400 }
         ))
       }
 
-      // Create user (directly verified - no email verification for now)
-      const user = {
-        id: uuidv4(),
-        name,
-        email: email.toLowerCase(),
-        password: hashPassword(password),
+      // Rate-limit: no more than one OTP per 30s for this email.
+      const existingOtp = await db.collection('otps').findOne({ email: normalizedEmail })
+      if (existingOtp && existingOtp.lastSentAt) {
+        const elapsed = Date.now() - new Date(existingOtp.lastSentAt).getTime()
+        if (elapsed < 30 * 1000) {
+          const waitS = Math.ceil((30 * 1000 - elapsed) / 1000)
+          return handleCORS(NextResponse.json(
+            { error: `Please wait ${waitS}s before requesting another code.` },
+            { status: 429 }
+          ))
+        }
+      }
+
+      const otp = generateOtp()
+      const now = new Date()
+      const expiresAt = new Date(now.getTime() + 10 * 60 * 1000) // 10 min
+
+      const pendingSignup = {
+        name: name.trim(),
+        passwordHash: hashPassword(password),
         interests,
         emailDomain: uni.domain,
         university: uni.name,
-        isVerified: true, // Auto-verified for testing
-        createdAt: new Date(),
-        updatedAt: new Date()
       }
 
-      await db.collection('users').insertOne(user)
+      await db.collection('otps').updateOne(
+        { email: normalizedEmail },
+        {
+          $set: {
+            email: normalizedEmail,
+            otpHash: hashOtp(otp),
+            expiresAt,
+            attempts: 0,
+            lastSentAt: now,
+            pendingSignup,
+            updatedAt: now,
+          },
+          $setOnInsert: {
+            id: uuidv4(),
+            createdAt: now,
+            resends: 0,
+            resendWindowStart: now,
+          },
+        },
+        { upsert: true }
+      )
 
-      // Generate session token for auto-login
-      const sessionToken = generateSessionToken(user.id)
+      const mailResult = await sendOtpEmail(normalizedEmail, pendingSignup.name, otp)
+      if (!mailResult.success) {
+        // Roll back so the user isn't stuck with a fake pending state.
+        await db.collection('otps').deleteOne({ email: normalizedEmail })
+        return handleCORS(NextResponse.json(
+          { error: 'Could not send verification email. Please try again.' },
+          { status: 502 }
+        ))
+      }
 
       return handleCORS(NextResponse.json({
-        message: 'Registration successful',
+        message: 'OTP sent',
+        email: normalizedEmail,
+        expiresInSec: 600,
+      }))
+    }
+
+    if (route === '/auth/signup/verify' && method === 'POST') {
+      const body = await request.json().catch(() => ({}))
+      const { email, otp } = body
+
+      if (!email || !otp) {
+        return handleCORS(NextResponse.json(
+          { error: 'Email and OTP are required' },
+          { status: 400 }
+        ))
+      }
+
+      const normalizedEmail = String(email).toLowerCase().trim()
+      const otpStr = String(otp).trim()
+
+      const record = await db.collection('otps').findOne({ email: normalizedEmail })
+      if (!record) {
+        return handleCORS(NextResponse.json(
+          { error: 'No pending signup for this email. Please start again.' },
+          { status: 404 }
+        ))
+      }
+
+      if (new Date(record.expiresAt).getTime() < Date.now()) {
+        await db.collection('otps').deleteOne({ email: normalizedEmail })
+        return handleCORS(NextResponse.json(
+          { error: 'This code has expired. Please request a new one.' },
+          { status: 410 }
+        ))
+      }
+
+      if ((record.attempts || 0) >= 5) {
+        await db.collection('otps').deleteOne({ email: normalizedEmail })
+        return handleCORS(NextResponse.json(
+          { error: 'Too many incorrect attempts. Please start signup again.' },
+          { status: 429 }
+        ))
+      }
+
+      if (hashOtp(otpStr) !== record.otpHash) {
+        await db.collection('otps').updateOne(
+          { email: normalizedEmail },
+          { $inc: { attempts: 1 } }
+        )
+        const left = 5 - ((record.attempts || 0) + 1)
+        return handleCORS(NextResponse.json(
+          { error: `Incorrect code. ${left > 0 ? `${left} attempt${left === 1 ? '' : 's'} left.` : ''}`.trim() },
+          { status: 400 }
+        ))
+      }
+
+      // Re-check uniqueness at the last moment (race safety).
+      const dup = await db.collection('users').findOne({ email: normalizedEmail })
+      if (dup) {
+        await db.collection('otps').deleteOne({ email: normalizedEmail })
+        return handleCORS(NextResponse.json(
+          { error: 'An account with this email already exists' },
+          { status: 400 }
+        ))
+      }
+
+      const ps = record.pendingSignup || {}
+      const nowD = new Date()
+      const user = {
+        id: uuidv4(),
+        name: ps.name,
+        email: normalizedEmail,
+        password: ps.passwordHash,
+        interests: ps.interests || [],
+        emailDomain: ps.emailDomain,
+        university: ps.university,
+        isVerified: true,
+        verifiedAt: nowD,
+        createdAt: nowD,
+        updatedAt: nowD,
+      }
+      await db.collection('users').insertOne(user)
+      await db.collection('otps').deleteOne({ email: normalizedEmail })
+
+      const sessionToken = generateSessionToken(user.id)
+      return handleCORS(NextResponse.json({
+        message: 'Verification successful',
         user: {
           id: user.id,
           name: user.name,
           email: user.email,
           interests: user.interests,
           university: user.university,
-          emailDomain: user.emailDomain
+          emailDomain: user.emailDomain,
         },
-        token: sessionToken
+        token: sessionToken,
+      }))
+    }
+
+    if (route === '/auth/signup/resend' && method === 'POST') {
+      const body = await request.json().catch(() => ({}))
+      const { email } = body
+      if (!email) {
+        return handleCORS(NextResponse.json(
+          { error: 'Email is required' },
+          { status: 400 }
+        ))
+      }
+      const normalizedEmail = String(email).toLowerCase().trim()
+      const record = await db.collection('otps').findOne({ email: normalizedEmail })
+      if (!record) {
+        return handleCORS(NextResponse.json(
+          { error: 'No pending signup for this email. Please start again.' },
+          { status: 404 }
+        ))
+      }
+
+      const nowMs = Date.now()
+
+      // 60-second cooldown between sends.
+      if (record.lastSentAt) {
+        const elapsed = nowMs - new Date(record.lastSentAt).getTime()
+        if (elapsed < 60 * 1000) {
+          const waitS = Math.ceil((60 * 1000 - elapsed) / 1000)
+          return handleCORS(NextResponse.json(
+            { error: `Please wait ${waitS}s before requesting another code.` },
+            { status: 429 }
+          ))
+        }
+      }
+
+      // Max 5 resends per rolling hour.
+      const windowStart = record.resendWindowStart ? new Date(record.resendWindowStart).getTime() : 0
+      const hourAgo = nowMs - 60 * 60 * 1000
+      const withinWindow = windowStart > hourAgo
+      const nextCount = withinWindow ? (record.resends || 0) + 1 : 1
+      if (withinWindow && (record.resends || 0) >= 5) {
+        return handleCORS(NextResponse.json(
+          { error: 'Too many resend attempts. Please try again later.' },
+          { status: 429 }
+        ))
+      }
+
+      const otp = generateOtp()
+      const nowD = new Date()
+      const expiresAt = new Date(nowMs + 10 * 60 * 1000)
+
+      await db.collection('otps').updateOne(
+        { email: normalizedEmail },
+        {
+          $set: {
+            otpHash: hashOtp(otp),
+            expiresAt,
+            attempts: 0,
+            lastSentAt: nowD,
+            resends: nextCount,
+            resendWindowStart: withinWindow ? record.resendWindowStart : nowD,
+            updatedAt: nowD,
+          },
+        }
+      )
+
+      const mailResult = await sendOtpEmail(normalizedEmail, record?.pendingSignup?.name || '', otp)
+      if (!mailResult.success) {
+        return handleCORS(NextResponse.json(
+          { error: 'Could not send verification email. Please try again.' },
+          { status: 502 }
+        ))
+      }
+
+      return handleCORS(NextResponse.json({
+        message: 'OTP resent',
+        email: normalizedEmail,
+        expiresInSec: 600,
       }))
     }
 

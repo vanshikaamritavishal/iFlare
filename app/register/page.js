@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -25,7 +25,7 @@ const INTEREST_CATEGORIES = [
 
 export default function RegisterPage() {
   const router = useRouter()
-  const [step, setStep] = useState(1) // Step 1: Basic info, Step 2: Interests
+  const [step, setStep] = useState(1) // 1: Basic info, 2: Interests, 3: OTP verification
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -35,13 +35,28 @@ export default function RegisterPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
 
+  // Step-3 state
+  const [otp, setOtp] = useState('')
+  const [resendCooldown, setResendCooldown] = useState(0)
+  const [resendLoading, setResendLoading] = useState(false)
+  const [info, setInfo] = useState('')
+
+  // Cooldown ticker for the Resend button.
+  useEffect(() => {
+    if (resendCooldown <= 0) return
+    const t = setInterval(() => {
+      setResendCooldown((s) => (s <= 1 ? 0 : s - 1))
+    }, 1000)
+    return () => clearInterval(t)
+  }, [resendCooldown])
+
   const handleInputChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value })
     setError('')
   }
 
   const toggleInterest = (interestId) => {
-    setSelectedInterests(prev => 
+    setSelectedInterests(prev =>
       prev.includes(interestId)
         ? prev.filter(id => id !== interestId)
         : [...prev, interestId]
@@ -78,43 +93,106 @@ export default function RegisterPage() {
     setStep(2)
   }
 
-  const handleRegister = async () => {
+  // Step 2 → 3: request an OTP; do NOT create the account yet.
+  const handleStartSignup = async () => {
     if (selectedInterests.length < 3) {
       setError('Please select at least 3 interests to build your persona')
       return
     }
-    
+
     setIsLoading(true)
     setError('')
-    
+    setInfo('')
+
     try {
-      const response = await fetch('/api/auth/register', {
+      const response = await fetch('/api/auth/signup/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: formData.name,
           email: formData.email,
           password: formData.password,
-          interests: selectedInterests
-        })
+          interests: selectedInterests,
+        }),
       })
-      
+
       const data = await response.json()
-      
       if (!response.ok) {
-        setError(data.error || 'Registration failed')
+        setError(data.error || 'Could not send verification code')
         setIsLoading(false)
         return
       }
-      
-      // Store user session and redirect to flares
+
+      setInfo(`We sent a 6-digit code to ${formData.email.trim().toLowerCase()}.`)
+      setOtp('')
+      setResendCooldown(60)
+      setStep(3)
+    } catch (err) {
+      setError('Something went wrong. Please try again.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // Step 3: verify OTP → creates the account.
+  const handleVerifyOtp = async () => {
+    const trimmedOtp = otp.trim()
+    if (!/^\d{6}$/.test(trimmedOtp)) {
+      setError('Enter the 6-digit code from your email')
+      return
+    }
+
+    setIsLoading(true)
+    setError('')
+
+    try {
+      const response = await fetch('/api/auth/signup/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: formData.email,
+          otp: trimmedOtp,
+        }),
+      })
+
+      const data = await response.json()
+      if (!response.ok) {
+        setError(data.error || 'Verification failed')
+        setIsLoading(false)
+        return
+      }
+
       localStorage.setItem('iflare_user', JSON.stringify(data.user))
       localStorage.setItem('iflare_token', data.token)
-      
       router.push('/flares')
     } catch (err) {
       setError('Something went wrong. Please try again.')
       setIsLoading(false)
+    }
+  }
+
+  const handleResendOtp = async () => {
+    if (resendCooldown > 0 || resendLoading) return
+    setResendLoading(true)
+    setError('')
+    setInfo('')
+    try {
+      const response = await fetch('/api/auth/signup/resend', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: formData.email }),
+      })
+      const data = await response.json()
+      if (!response.ok) {
+        setError(data.error || 'Could not resend code')
+      } else {
+        setInfo('A new code has been sent.')
+        setResendCooldown(60)
+      }
+    } catch (err) {
+      setError('Something went wrong. Please try again.')
+    } finally {
+      setResendLoading(false)
     }
   }
 
@@ -125,7 +203,8 @@ export default function RegisterPage() {
         <button 
           onClick={() => {
             if (step === 1) router.push('/login')
-            else setStep(1)
+            else if (step === 2) setStep(1)
+            else setStep(2)
           }}
           className="w-10 h-10 rounded-full bg-slate-800/50 flex items-center justify-center text-slate-400 hover:text-white transition-colors"
         >
@@ -144,11 +223,18 @@ export default function RegisterPage() {
       <div className="flex gap-2 mb-8">
         <div className={`h-1 flex-1 rounded-full ${step >= 1 ? 'bg-orange-500' : 'bg-slate-700'}`} />
         <div className={`h-1 flex-1 rounded-full ${step >= 2 ? 'bg-orange-500' : 'bg-slate-700'}`} />
+        <div className={`h-1 flex-1 rounded-full ${step >= 3 ? 'bg-orange-500' : 'bg-slate-700'}`} />
       </div>
 
       {error && (
         <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm">
           {error}
+        </div>
+      )}
+
+      {info && !error && (
+        <div className="mb-4 p-3 bg-orange-500/10 border border-orange-500/30 rounded-xl text-orange-300 text-sm">
+          {info}
         </div>
       )}
 
@@ -256,18 +342,84 @@ export default function RegisterPage() {
               {selectedInterests.length} of 3 minimum selected
             </p>
             <Button
-              onClick={handleRegister}
+              onClick={handleStartSignup}
               disabled={selectedInterests.length < 3 || isLoading}
               className="w-full h-14 bg-orange-600 hover:bg-orange-700 text-white font-semibold text-lg rounded-2xl disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? (
                 <span className="flex items-center gap-2">
                   <Loader2 className="w-5 h-5 animate-spin" />
-                  Creating account...
+                  Sending code...
                 </span>
               ) : (
                 <>
-                  Complete Registration
+                  Send verification code
+                  <ArrowRight className="w-5 h-5 ml-2" />
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {step === 3 && (
+        /* Step 3: OTP Verification */
+        <div className="flex-1 flex flex-col">
+          <h1 className="text-2xl font-bold mb-2">Verify your email</h1>
+          <p className="text-slate-400 mb-6">
+            Enter the 6-digit code we sent to <span className="text-orange-400">{formData.email.trim().toLowerCase()}</span>
+          </p>
+
+          <div>
+            <label className="text-sm text-slate-400 mb-2 block">Verification code</label>
+            <Input
+              name="otp"
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              maxLength={6}
+              value={otp}
+              onChange={(e) => {
+                setError('')
+                setInfo('')
+                // Only accept digits, cap at 6.
+                setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))
+              }}
+              placeholder="123456"
+              className="h-14 text-center text-2xl tracking-[0.5em] bg-slate-800/50 border-slate-700 rounded-xl text-white placeholder:text-slate-600 focus:border-orange-500"
+            />
+            <p className="text-xs text-slate-500 mt-2">
+              Code expires in 10 minutes. Check your spam folder if you don&apos;t see it.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleResendOtp}
+            disabled={resendCooldown > 0 || resendLoading}
+            className="mt-4 text-sm text-orange-400 hover:text-orange-300 disabled:text-slate-600 disabled:cursor-not-allowed self-start"
+          >
+            {resendLoading
+              ? 'Sending…'
+              : resendCooldown > 0
+                ? `Resend code in ${resendCooldown}s`
+                : 'Resend code'}
+          </button>
+
+          <div className="mt-auto">
+            <Button
+              onClick={handleVerifyOtp}
+              disabled={otp.length !== 6 || isLoading}
+              className="w-full h-14 bg-orange-600 hover:bg-orange-700 text-white font-semibold text-lg rounded-2xl disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isLoading ? (
+                <span className="flex items-center gap-2">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Verifying...
+                </span>
+              ) : (
+                <>
+                  Verify & create account
                   <ArrowRight className="w-5 h-5 ml-2" />
                 </>
               )}
