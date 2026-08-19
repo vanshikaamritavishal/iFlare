@@ -107,7 +107,7 @@ takes effect without a restart.
 ## 5. Database Schema
 
 Database: `iflare`
-Two collections: `users` and `flares`.
+Three collections: `users`, `flares`, `messages`.
 All IDs are **UUIDs** (never Mongo `ObjectId`, which is not JSON-serialisable).
 
 ### 5.1 `users` collection
@@ -164,7 +164,33 @@ All IDs are **UUIDs** (never Mongo `ObjectId`, which is not JSON-serialisable).
 **Indexes to consider adding**:
 `{ hostEmailDomain: 1, startTime: 1 }`, `{ "host.id": 1 }`, `{ "attendees.id": 1 }`.
 
-### 5.3 Legacy migration
+### 5.3 `messages` collection
+
+Per-iFlare group chat. One document per message.
+
+```jsonc
+{
+  "_id": ObjectId("…"),
+  "id": "b3c1e0f2-…-uuid",
+  "flareId": "9e8c1a12-…-uuid",     // parent iFlare
+  "senderId": "3f5a8c7b-…-uuid",    // author's user.id
+  "senderName": "Alice Scaler",     // denormalized for cheap rendering
+  "text": "See you at 4:30!",       // 1..1000 chars, server-trimmed
+  "createdAt": ISODate("…")
+}
+```
+
+**Indexes auto-created on server start** (in `ensureMigrated`):
+`{ flareId: 1, createdAt: 1 }` (for chat feed + delta polling by `since`)
+and `{ id: 1 }` unique.
+
+**Access rules** (enforced by `assertFlareChatAccess`):
+- Requester must be the flare's host **or** an attendee.
+- Requester's `emailDomain` must equal the flare's `hostEmailDomain`
+  (cross-campus block). Legacy flares without `hostEmailDomain` skip this
+  check to remain usable.
+
+### 5.4 Legacy migration
 
 On every server start, the first `/api` request triggers
 `ensureMigrated(db)` in `app/api/[[...path]]/route.js`. It:
@@ -315,6 +341,8 @@ production** (see § 8).
 | POST   | `/flares`                      | `{ title, description, interests[], location, startTime, maxAttendees, hostId, hostName }`                             | Stamps `hostEmailDomain` + `hostUniversity` from host's user record. |
 | GET    | `/flares?interests=a,b&userId=<uuid>` | Optional `interests` filter. If `userId` is provided, results are **scoped to that user's `emailDomain`** (university). | Returns `Flare[]`. |
 | POST   | `/flares/:flareId/join`        | `{ userId, userName, flareData? }`                                                                                     | If the flare doesn't exist yet (client sample data), `flareData` will be used to create it. |
+| GET    | `/flares/:flareId/messages?userId=<uid>&since=<ISO>` | –                                                                                              | Chat: participants only, same email domain. Returns latest 100 or messages newer than `since` for polling. |
+| POST   | `/flares/:flareId/messages`    | `{ userId, text }`                                                                                                     | Chat: participants only. Text trimmed, max 1000 chars. |
 
 > ⚠️ **Backend does not currently enforce that the requester belongs to the
 > host's university** — it only filters GET results. A malicious client

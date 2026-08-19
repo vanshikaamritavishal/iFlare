@@ -59,11 +59,42 @@ async function ensureMigrated(db) {
         )
       }
     }
+
+    // Ensure indexes for chat (idempotent — createIndex is a no-op if exists)
+    await db.collection('messages').createIndex({ flareId: 1, createdAt: 1 })
+    await db.collection('messages').createIndex({ id: 1 }, { unique: true })
   } catch (e) {
     console.error('Migration warning (non-fatal):', e)
   } finally {
     migrated = true
   }
+}
+
+// Helper: verify that `userId` can access `flareId`'s chat.
+// A user can access if they are the host OR an attendee, AND their email
+// domain matches the flare's hostEmailDomain (cross-campus safety).
+async function assertFlareChatAccess(db, flareId, userId) {
+  if (!userId) return { ok: false, status: 401, error: 'userId is required' }
+  const flare = await db.collection('flares').findOne({ id: flareId })
+  if (!flare) return { ok: false, status: 404, error: 'Flare not found' }
+
+  const user = await db.collection('users').findOne(
+    { id: userId },
+    { projection: { id: 1, name: 1, email: 1, emailDomain: 1 } }
+  )
+  if (!user) return { ok: false, status: 401, error: 'User not found' }
+
+  const userDomain = user.emailDomain || getDomainFromEmail(user.email)
+  if (flare.hostEmailDomain && userDomain && flare.hostEmailDomain !== userDomain) {
+    return { ok: false, status: 403, error: 'You cannot access this iFlare chat' }
+  }
+
+  const isHost = flare?.host?.id === userId
+  const isAttendee = Array.isArray(flare.attendees) && flare.attendees.some(a => a.id === userId)
+  if (!isHost && !isAttendee) {
+    return { ok: false, status: 403, error: 'Join this iFlare to see its chat' }
+  }
+  return { ok: true, flare, user }
 }
 
 // Initialize Resend
@@ -748,6 +779,91 @@ async function handleRoute(request, { params }) {
       )
 
       return handleCORS(NextResponse.json({ message: 'Joined successfully' }))
+    }
+
+    // ==================== FLARE CHAT ROUTES ====================
+
+    // GET messages for a flare (host + attendees only, same email domain).
+    // Optional ?since=<ISO> returns only newer messages for polling.
+    // Otherwise returns the latest 100.
+    if (route.match(/^\/flares\/[^/]+\/messages$/) && method === 'GET') {
+      const flareId = path[1]
+      const url = new URL(request.url)
+      const userId = url.searchParams.get('userId')
+      const sinceRaw = url.searchParams.get('since')
+
+      const access = await assertFlareChatAccess(db, flareId, userId)
+      if (!access.ok) {
+        return handleCORS(NextResponse.json(
+          { error: access.error },
+          { status: access.status }
+        ))
+      }
+
+      const query = { flareId }
+      if (sinceRaw) {
+        const since = new Date(sinceRaw)
+        if (!isNaN(since.getTime())) {
+          query.createdAt = { $gt: since }
+        }
+      }
+
+      // Newest 100 messages when no cursor; ascending on wire so client
+      // renders bottom-up naturally.
+      const messages = await db.collection('messages')
+        .find(query)
+        .sort({ createdAt: sinceRaw ? 1 : -1 })
+        .limit(100)
+        .toArray()
+
+      const ordered = sinceRaw ? messages : messages.reverse()
+      const cleaned = ordered.map(({ _id, ...rest }) => rest)
+
+      return handleCORS(NextResponse.json({ messages: cleaned }))
+    }
+
+    // POST a new message to a flare (host + attendees only, same domain).
+    if (route.match(/^\/flares\/[^/]+\/messages$/) && method === 'POST') {
+      const flareId = path[1]
+      const body = await request.json().catch(() => ({}))
+      const { userId, text } = body
+
+      const access = await assertFlareChatAccess(db, flareId, userId)
+      if (!access.ok) {
+        return handleCORS(NextResponse.json(
+          { error: access.error },
+          { status: access.status }
+        ))
+      }
+
+      const trimmed = typeof text === 'string' ? text.trim() : ''
+      if (!trimmed) {
+        return handleCORS(NextResponse.json(
+          { error: 'Message text is required' },
+          { status: 400 }
+        ))
+      }
+      if (trimmed.length > 1000) {
+        return handleCORS(NextResponse.json(
+          { error: 'Message is too long (max 1000 characters)' },
+          { status: 400 }
+        ))
+      }
+
+      const now = new Date()
+      const message = {
+        id: uuidv4(),
+        flareId,
+        senderId: access.user.id,
+        senderName: access.user.name,
+        text: trimmed,
+        createdAt: now,
+      }
+
+      await db.collection('messages').insertOne(message)
+
+      const { _id, ...cleaned } = message
+      return handleCORS(NextResponse.json({ message: cleaned }))
     }
 
     // Route not found

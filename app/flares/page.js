@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { useNotificationContext } from '@/lib/NotificationProvider'
 import OnboardingWalkthrough from '@/components/OnboardingWalkthrough'
+import FlareChat from '@/components/FlareChat'
 
 // Mock user data (would come from auth context in real app)
 // Will be replaced with actual user data from localStorage
@@ -713,6 +714,11 @@ function FlareDetailModal({ flare, onClose, onJoin, currentUser, timeInfo, getUr
             >
               {timeInfo.urgency === 'critical' ? '🔥 Join Now!' : 'Join this iFlare'}
             </Button>
+          )}
+
+          {/* Chat — only for participants */}
+          {(isHost || isAttending) && (
+            <FlareChat flareId={flare.id} currentUser={currentUser} />
           )}
         </div>
       </div>
