@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { 
   Radar, Plus, MapPin, Clock, Users, Search, Filter,
-  Calendar, ChevronRight, Sparkles, X, Navigation,
+  Calendar, ChevronRight, Sparkles, X,
   Home, Bell, User, Check, AlertCircle, Timer
 } from 'lucide-react'
 import { useNotificationContext } from '@/lib/NotificationProvider'
@@ -235,53 +235,68 @@ export default function FlaresPage() {
   }, [])
 
   // Filter and sort flares based on:
-  // 1. User interests match
-  // 2. Sorted by start time
+  // 1. Visibility window: 90 min before start → 30 min after start
+  // 2. User interests match
+  // 3. Sorted by start time
   useEffect(() => {
+    const nowMs = currentTime.getTime()
+    const windowStart = nowMs - 30 * 60 * 1000  // events that started up to 30 min ago
+    const windowEnd = nowMs + 90 * 60 * 1000    // events starting within the next 90 min
+
     let filtered = flares.filter(flare => {
-      // Check if any of user's interests match any of flare's interests
-      const hasMatchingInterest = flare.interests?.some(interest => 
-        currentUser.interests.includes(interest)
-      )
-      
-      return hasMatchingInterest
+      const startMs = new Date(flare.startTime).getTime()
+      if (isNaN(startMs)) return false
+      // Inside the visibility window?
+      if (startMs <= windowStart || startMs > windowEnd) return false
+      // Interest match?
+      return flare.interests?.some(interest => currentUser.interests.includes(interest))
     })
-    
+
     // Apply interest filter if not 'all'
     if (activeFilter !== 'all') {
       filtered = filtered.filter(flare => flare.interests?.includes(activeFilter))
     }
-    
+
     // Apply search filter
     if (searchQuery) {
-      filtered = filtered.filter(flare => 
+      filtered = filtered.filter(flare =>
         flare.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         flare.description?.toLowerCase().includes(searchQuery.toLowerCase())
       )
     }
-    
+
     // Sort by start time - upcoming first
     filtered.sort((a, b) => {
       const timeA = new Date(a.startTime).getTime()
       const timeB = new Date(b.startTime).getTime()
-      return timeA - timeB // Ascending order - earliest first
+      return timeA - timeB
     })
-    
-    setFilteredFlares(filtered)
-  }, [flares, activeFilter, searchQuery, currentTime])
 
-  // Get time remaining and urgency level
+    setFilteredFlares(filtered)
+  }, [flares, activeFilter, searchQuery, currentTime, currentUser.interests])
+
+  // Get time remaining/elapsed and urgency level.
+  // - Positive diff: "in X min" (Starting Soon)
+  // - Non-positive diff: "started X min ago" (Happening Now, up to 30 min old)
   const getTimeInfo = (startTime) => {
     const now = new Date()
     const start = new Date(startTime)
     const diffMs = start - now
     const diffMins = Math.floor(diffMs / (1000 * 60))
-    
-    if (diffMins <= 0) return { text: 'Starting now!', urgency: 'critical', mins: 0 }
-    if (diffMins <= 15) return { text: `${diffMins} min`, urgency: 'critical', mins: diffMins }
-    if (diffMins <= 30) return { text: `${diffMins} min`, urgency: 'high', mins: diffMins }
-    if (diffMins <= 60) return { text: `${diffMins} min`, urgency: 'medium', mins: diffMins }
-    return { text: `${diffMins} min`, urgency: 'normal', mins: diffMins }
+
+    if (diffMins > 0) {
+      if (diffMins <= 15) return { text: `${diffMins} min`, urgency: 'critical', mins: diffMins }
+      if (diffMins <= 30) return { text: `${diffMins} min`, urgency: 'high', mins: diffMins }
+      if (diffMins <= 60) return { text: `${diffMins} min`, urgency: 'medium', mins: diffMins }
+      return { text: `${diffMins} min`, urgency: 'normal', mins: diffMins }
+    }
+    // Happening Now
+    const ago = -diffMins
+    return {
+      text: ago === 0 ? 'Just started' : `Started ${ago} min ago`,
+      urgency: 'happening',
+      mins: diffMins,
+    }
   }
 
   const getUrgencyStyles = (urgency) => {
@@ -292,6 +307,8 @@ export default function FlaresPage() {
         return 'bg-orange-500/20 text-orange-400 border-orange-500/50'
       case 'medium':
         return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50'
+      case 'happening':
+        return 'bg-green-500/20 text-green-400 border-green-500/50'
       default:
         return 'bg-slate-500/20 text-slate-400 border-slate-500/50'
     }
@@ -443,56 +460,73 @@ export default function FlaresPage() {
         </p>
       </div>
 
-      {/* Urgent iFlares - Starting Soon */}
-      {filteredFlares.filter(f => getTimeInfo(f.startTime).urgency === 'critical').length > 0 && (
+      {/* Starting Soon (upcoming within 90 min) */}
+      {filteredFlares.filter(f => getTimeInfo(f.startTime).mins > 0).length > 0 && (
         <section className="px-4 py-4">
           <div className="flex items-center gap-2 mb-3">
-            <AlertCircle className="w-5 h-5 text-red-400" />
-            <h2 className="font-semibold text-lg text-red-400">Starting Very Soon!</h2>
+            <Clock className="w-5 h-5 text-orange-400" />
+            <h2 className="font-semibold text-lg">Starting Soon</h2>
+            <span className="text-sm text-slate-500">
+              ({filteredFlares.filter(f => getTimeInfo(f.startTime).mins > 0).length})
+            </span>
           </div>
-          
+
           <div className="space-y-3">
-            {filteredFlares.filter(f => getTimeInfo(f.startTime).urgency === 'critical').map(flare => (
-              <FlareCard 
-                key={flare.id} 
-                flare={flare} 
-                onClick={() => setSelectedFlare(flare)}
-                timeInfo={getTimeInfo(flare.startTime)}
-                getUrgencyStyles={getUrgencyStyles}
-              />
-            ))}
+            {filteredFlares
+              .filter(f => getTimeInfo(f.startTime).mins > 0)
+              .map(flare => (
+                <FlareCard
+                  key={flare.id}
+                  flare={flare}
+                  onClick={() => setSelectedFlare(flare)}
+                  timeInfo={getTimeInfo(flare.startTime)}
+                  getUrgencyStyles={getUrgencyStyles}
+                />
+              ))}
           </div>
         </section>
       )}
 
-      {/* All iFlares Section */}
-      <section className="px-4 py-4">
-        <div className="flex items-center gap-2 mb-3">
-          <Clock className="w-5 h-5 text-slate-400" />
-          <h2 className="font-semibold text-lg">Happening Soon</h2>
-          <span className="text-sm text-slate-500">({filteredFlares.length} iFlares)</span>
-        </div>
-        
-        <div className="space-y-3">
-          {filteredFlares.filter(f => getTimeInfo(f.startTime).urgency !== 'critical').map(flare => (
-            <FlareCard 
-              key={flare.id} 
-              flare={flare} 
-              onClick={() => setSelectedFlare(flare)}
-              timeInfo={getTimeInfo(flare.startTime)}
-              getUrgencyStyles={getUrgencyStyles}
-            />
-          ))}
-        </div>
-        
-        {filteredFlares.length === 0 && (
+      {/* Happening Now (started, still within 30-min buffer) */}
+      {filteredFlares.filter(f => getTimeInfo(f.startTime).mins <= 0).length > 0 && (
+        <section className="px-4 py-4">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-60" />
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500" />
+            </span>
+            <h2 className="font-semibold text-lg text-green-400">Happening Now</h2>
+            <span className="text-sm text-slate-500">
+              ({filteredFlares.filter(f => getTimeInfo(f.startTime).mins <= 0).length})
+            </span>
+          </div>
+
+          <div className="space-y-3">
+            {filteredFlares
+              .filter(f => getTimeInfo(f.startTime).mins <= 0)
+              .map(flare => (
+                <FlareCard
+                  key={flare.id}
+                  flare={flare}
+                  onClick={() => setSelectedFlare(flare)}
+                  timeInfo={getTimeInfo(flare.startTime)}
+                  getUrgencyStyles={getUrgencyStyles}
+                />
+              ))}
+          </div>
+        </section>
+      )}
+
+      {/* Empty state */}
+      {filteredFlares.length === 0 && (
+        <section className="px-4 py-4">
           <div className="text-center py-12">
             <Sparkles className="w-12 h-12 text-slate-600 mx-auto mb-3" />
             <p className="text-slate-400">No iFlares in the next 90 minutes</p>
             <p className="text-sm text-slate-500 mt-1">Be the first to create one!</p>
           </div>
-        )}
-      </section>
+        </section>
+      )}
 
       {/* Floating Create Button */}
       <button
@@ -631,29 +665,25 @@ function FlareDetailModal({ flare, onClose, onJoin, currentUser, timeInfo, getUr
             <X className="w-5 h-5" />
           </button>
           
-          {/* Urgency badge */}
+          {/* Urgency / status badge */}
           <div className={`absolute top-4 left-4 px-3 py-1.5 rounded-xl border font-bold ${getUrgencyStyles(timeInfo.urgency)}`}>
             <div className="flex items-center gap-1">
               <Timer className="w-4 h-4" />
-              <span>Starts in {timeInfo.text}</span>
+              <span>
+                {timeInfo.urgency === 'happening' ? timeInfo.text : `Starts in ${timeInfo.text}`}
+              </span>
             </div>
           </div>
-          
+
+          {/* Venue (plain, no maps link) */}
           <div className="absolute bottom-4 left-4 right-4">
-            <a
-              href={buildMapsUrl(flare.location)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-3 bg-slate-900/90 backdrop-blur rounded-xl p-3 hover:bg-slate-800/90 transition-colors"
-              aria-label="Open venue in Google Maps"
-            >
+            <div className="flex items-center gap-3 bg-slate-900/90 backdrop-blur rounded-xl p-3">
               <MapPin className="w-5 h-5 text-orange-400 flex-shrink-0" />
               <div className="min-w-0 flex-1">
-                <p className="font-medium text-sm truncate">{flare.location.name}</p>
-                <p className="text-xs text-orange-400">Open in Google Maps</p>
+                <p className="text-xs text-slate-400">Venue</p>
+                <p className="font-medium text-sm truncate">{flare.location?.name || 'TBD'}</p>
               </div>
-              <Navigation className="w-5 h-5 text-orange-400 ml-auto flex-shrink-0" />
-            </a>
+            </div>
           </div>
         </div>
 
@@ -1090,20 +1120,4 @@ function MapPlaceholder({ location, isSelectable = false }) {
       )}
     </div>
   )
-}
-
-// Build a Google Maps URL for the given location. Uses lat/lng when we
-// have real coordinates; falls back to a search on the venue name.
-// No API key required.
-function buildMapsUrl(location) {
-  if (!location) return 'https://www.google.com/maps'
-  const { name, lat, lng } = location
-  const hasCoords = typeof lat === 'number' && typeof lng === 'number' && !(lat === 0 && lng === 0)
-  if (hasCoords) {
-    const q = name
-      ? `${encodeURIComponent(name)}@${lat},${lng}`
-      : `${lat},${lng}`
-    return `https://www.google.com/maps/search/?api=1&query=${q}`
-  }
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(name || '')}`
 }

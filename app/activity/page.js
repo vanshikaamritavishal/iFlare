@@ -150,6 +150,16 @@ export default function ActivityPage() {
         </div>
       </header>
 
+      {/* Visibility helper */}
+      <div className="px-4 py-3 bg-orange-500/10 border-b border-orange-500/20">
+        <p className="text-xs text-orange-300/90 flex items-start gap-1.5">
+          <Clock className="w-3 h-3 mt-0.5 flex-shrink-0" />
+          <span>
+            Your created flares appear on the Flares feed 90 minutes before start time. All your flares stay here.
+          </span>
+        </p>
+      </div>
+
       {/* Activity List */}
       <div className="px-4 py-4">
         {filteredFlares.length === 0 ? (
