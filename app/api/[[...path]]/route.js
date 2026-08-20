@@ -135,7 +135,7 @@ async function sendVerificationEmail(email, name, token) {
   
   try {
     const { data, error } = await resend.emails.send({
-      from: 'iFLARE <onboarding@resend.dev>',
+      from: 'iFLARE <noreply@iflare.fun>',
       to: [email],
       subject: 'Verify your iFLARE account',
       html: `
@@ -208,7 +208,7 @@ function hashOtp(otp) {
 async function sendOtpEmail(email, name, otp) {
   try {
     const { data, error } = await resend.emails.send({
-      from: 'iFLARE <onboarding@resend.dev>',
+      from: 'iFLARE <noreply@iflare.fun>',
       to: [email],
       subject: `${otp} is your iFLARE verification code`,
       html: `
