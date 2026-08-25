@@ -290,13 +290,16 @@ export default function FlaresPage() {
       if (diffMins <= 60) return { text: `${diffMins} min`, urgency: 'medium', mins: diffMins }
       return { text: `${diffMins} min`, urgency: 'normal', mins: diffMins }
     }
-    // Happening Now
+    // Started already — Happening Now if within 30 min buffer, otherwise Ended.
     const ago = -diffMins
-    return {
-      text: ago === 0 ? 'Just started' : `Started ${ago} min ago`,
-      urgency: 'happening',
-      mins: diffMins,
+    if (ago <= 30) {
+      return {
+        text: ago === 0 ? 'Just started' : `Started ${ago} min ago`,
+        urgency: 'happening',
+        mins: diffMins,
+      }
     }
+    return { text: 'Ended', urgency: 'ended', mins: diffMins }
   }
 
   const getUrgencyStyles = (urgency) => {
@@ -309,6 +312,8 @@ export default function FlaresPage() {
         return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50'
       case 'happening':
         return 'bg-green-500/20 text-green-400 border-green-500/50'
+      case 'ended':
+        return 'bg-slate-700/40 text-slate-400 border-slate-600/50'
       default:
         return 'bg-slate-500/20 text-slate-400 border-slate-500/50'
     }
@@ -670,7 +675,11 @@ function FlareDetailModal({ flare, onClose, onJoin, currentUser, timeInfo, getUr
             <div className="flex items-center gap-1">
               <Timer className="w-4 h-4" />
               <span>
-                {timeInfo.urgency === 'happening' ? timeInfo.text : `Starts in ${timeInfo.text}`}
+                {timeInfo.urgency === 'happening'
+                  ? timeInfo.text
+                  : timeInfo.urgency === 'ended'
+                    ? 'Ended'
+                    : `Starts in ${timeInfo.text}`}
               </span>
             </div>
           </div>
@@ -752,8 +761,12 @@ function FlareDetailModal({ flare, onClose, onJoin, currentUser, timeInfo, getUr
             </div>
           </div>
 
-          {/* Action button */}
-          {isHost ? (
+          {/* Action / status button */}
+          {timeInfo.urgency === 'ended' ? (
+            <div className="w-full h-14 rounded-2xl border border-slate-700 bg-slate-800/40 text-slate-400 flex items-center justify-center font-medium">
+              This iFlare has ended
+            </div>
+          ) : isHost ? (
             <Button className="w-full h-14 bg-slate-700 text-white font-semibold text-lg rounded-2xl" disabled>
               You're hosting this iFlare
             </Button>
@@ -779,8 +792,8 @@ function FlareDetailModal({ flare, onClose, onJoin, currentUser, timeInfo, getUr
             </Button>
           )}
 
-          {/* Chat — only for participants */}
-          {(isHost || isAttending) && (
+          {/* Chat — only for participants and only while the flare is live */}
+          {(isHost || isAttending) && timeInfo.urgency !== 'ended' && (
             <FlareChat flareId={flare.id} currentUser={currentUser} />
           )}
         </div>

@@ -200,6 +200,13 @@ export default function ActivityPage() {
                 router.push('/flares')
               }
 
+              // A flare is "ended" 30 minutes after its start time.
+              const isEnded = (() => {
+                const startMs = new Date(flare.startTime).getTime()
+                if (isNaN(startMs)) return false
+                return Date.now() > startMs + 30 * 60 * 1000
+              })()
+
               return (
                 <div
                   key={flare.id}
@@ -212,26 +219,43 @@ export default function ActivityPage() {
                       openFlare()
                     }
                   }}
-                  className="bg-slate-800/50 rounded-2xl p-4 border border-slate-700/50 cursor-pointer hover:border-orange-500/40 hover:bg-slate-800/70 transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500/40"
+                  className={`rounded-2xl p-4 border cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500/40 ${
+                    isEnded
+                      ? 'bg-slate-900/40 border-slate-800 opacity-70 hover:border-slate-700'
+                      : 'bg-slate-800/50 border-slate-700/50 hover:border-orange-500/40 hover:bg-slate-800/70'
+                  }`}
                 >
                   {/* Badge */}
                   <div className="flex items-center justify-between mb-3">
-                    <span className={`px-3 py-1 rounded-lg text-xs font-medium ${
-                      isCreator 
-                        ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
-                        : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-                    }`}>
-                      {isCreator ? '🔥 Created by you' : '✓ Joined'}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className={`px-3 py-1 rounded-lg text-xs font-medium ${
+                        isEnded
+                          ? 'bg-slate-700/40 text-slate-500 border border-slate-700'
+                          : isCreator
+                            ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
+                            : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                      }`}>
+                        {isCreator ? '🔥 Created by you' : '✓ Joined'}
+                      </span>
+                      {isEnded && (
+                        <span className="px-2 py-1 rounded-lg text-[10px] font-semibold uppercase tracking-wide bg-slate-700/40 text-slate-400 border border-slate-600/40">
+                          Ended
+                        </span>
+                      )}
+                    </div>
                     <span className="text-xs text-slate-500">{date}</span>
                   </div>
 
                   <div className="flex items-start gap-3">
-                    <div className="w-12 h-12 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-2xl flex-shrink-0">
+                    <div className={`w-12 h-12 rounded-xl border flex items-center justify-center text-2xl flex-shrink-0 ${
+                      isEnded
+                        ? 'bg-slate-800/60 border-slate-700 grayscale'
+                        : 'bg-orange-500/10 border-orange-500/20'
+                    }`}>
                       {interestInfo.label?.split(' ')[0] || '🔥'}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold line-clamp-1">{flare.title}</h3>
+                      <h3 className={`font-semibold line-clamp-1 ${isEnded ? 'text-slate-400' : ''}`}>{flare.title}</h3>
                       <p className="text-sm text-slate-400 mb-2 line-clamp-1">{flare.description}</p>
                       
                       {/* Interest tags */}
