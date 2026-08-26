@@ -68,6 +68,10 @@ async function ensureMigrated(db) {
     // TTL auto-cleans expired pending signups; unique keeps one active per email.
     await db.collection('otps').createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 })
     await db.collection('otps').createIndex({ email: 1 }, { unique: true })
+
+    // Password reset OTPs — same TTL + unique-per-email pattern as signup OTPs.
+    await db.collection('password_resets').createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 })
+    await db.collection('password_resets').createIndex({ email: 1 }, { unique: true })
   } catch (e) {
     console.error('Migration warning (non-fatal):', e)
   } finally {
@@ -190,7 +194,53 @@ async function sendVerificationEmail(email, name, token) {
   }
 }
 
-// ---------- Signup OTP helpers ----------
+// Send a password-reset OTP via Resend.
+async function sendPasswordResetEmail(email, name, otp) {
+  try {
+    const { data, error } = await resend.emails.send({
+      from: 'iFLARE <noreply@iflare.fun>',
+      to: [email],
+      subject: `${otp} is your iFLARE password reset code`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="utf-8"></head>
+        <body style="margin:0;padding:0;background:#0f172a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;">
+          <div style="max-width:520px;margin:0 auto;padding:40px 20px;">
+            <div style="text-align:center;margin-bottom:32px;">
+              <h1 style="color:#f97316;font-size:28px;margin:0;">iFLARE</h1>
+              <p style="color:#94a3b8;font-size:13px;margin-top:6px;">Real connections. Right now.</p>
+            </div>
+            <div style="background:#0b1220;border:1px solid #1f2937;border-radius:14px;padding:28px;">
+              <h2 style="color:#fff;font-size:20px;margin:0 0 12px 0;">Hi ${name || 'there'},</h2>
+              <p style="color:#94a3b8;font-size:15px;line-height:1.6;margin:0 0 20px 0;">
+                We received a request to reset your iFLARE password. Use the code below within the next 10 minutes to set a new one.
+              </p>
+              <div style="text-align:center;padding:20px;background:#111827;border:1px solid #1f2937;border-radius:12px;margin:0 0 20px 0;">
+                <div style="color:#f97316;font-size:34px;font-weight:700;letter-spacing:10px;">${otp}</div>
+              </div>
+              <p style="color:#64748b;font-size:13px;line-height:1.6;margin:0;">
+                If you did not request a password reset, you can safely ignore this email — your password will remain unchanged.
+              </p>
+            </div>
+            <p style="color:#475569;font-size:11px;text-align:center;margin-top:24px;">
+              Sent by iFLARE — please do not reply to this email.
+            </p>
+          </div>
+        </body>
+        </html>
+      `
+    })
+    if (error) {
+      console.error('PasswordReset Resend error:', error)
+      return { success: false, error }
+    }
+    return { success: true, data }
+  } catch (error) {
+    console.error('PasswordReset send error:', error)
+    return { success: false, error }
+  }
+}
 
 // 6-digit numeric OTP.
 function generateOtp() {
@@ -571,6 +621,154 @@ async function handleRoute(request, { params }) {
         message: 'OTP resent',
         email: normalizedEmail,
         expiresInSec: 600,
+      }))
+    }
+
+    // ============ FORGOT PASSWORD FLOW ============
+    // /auth/forgot-password/start : sends a reset OTP if the user exists.
+    //   Always returns 200 with a generic message so we don't leak whether an
+    //   email is registered on iFLARE.
+    // /auth/forgot-password/verify : validates the OTP and sets the new
+    //   password. Does NOT auto-login — user goes back to the standard login
+    //   flow (which is intentionally untouched).
+
+    if (route === '/auth/forgot-password/start' && method === 'POST') {
+      const body = await request.json().catch(() => ({}))
+      const { email } = body
+      if (!email) {
+        return handleCORS(NextResponse.json(
+          { error: 'Email is required' },
+          { status: 400 }
+        ))
+      }
+      const normalizedEmail = String(email).toLowerCase().trim()
+      const genericOk = NextResponse.json({
+        message: 'If an account with that email exists, a reset code has been sent.',
+        expiresInSec: 600,
+      })
+
+      const user = await db.collection('users').findOne(
+        { email: normalizedEmail },
+        { projection: { id: 1, name: 1, email: 1 } }
+      )
+      if (!user) {
+        return handleCORS(genericOk)
+      }
+
+      // Rate-limit: silently swallow rapid re-requests to avoid enumeration.
+      const existing = await db.collection('password_resets').findOne({ email: normalizedEmail })
+      if (existing?.lastSentAt) {
+        const elapsed = Date.now() - new Date(existing.lastSentAt).getTime()
+        if (elapsed < 30 * 1000) {
+          return handleCORS(genericOk)
+        }
+      }
+
+      const otp = generateOtp()
+      const now = new Date()
+      const expiresAt = new Date(now.getTime() + 10 * 60 * 1000)
+
+      await db.collection('password_resets').updateOne(
+        { email: normalizedEmail },
+        {
+          $set: {
+            email: normalizedEmail,
+            otpHash: hashOtp(otp),
+            expiresAt,
+            attempts: 0,
+            lastSentAt: now,
+            updatedAt: now,
+          },
+          $setOnInsert: { id: uuidv4(), createdAt: now },
+        },
+        { upsert: true }
+      )
+
+      const mailResult = await sendPasswordResetEmail(normalizedEmail, user.name, otp)
+      if (!mailResult.success) {
+        await db.collection('password_resets').deleteOne({ email: normalizedEmail })
+        return handleCORS(NextResponse.json(
+          { error: 'Could not send reset email. Please try again.' },
+          { status: 502 }
+        ))
+      }
+
+      return handleCORS(genericOk)
+    }
+
+    if (route === '/auth/forgot-password/verify' && method === 'POST') {
+      const body = await request.json().catch(() => ({}))
+      const { email, otp, newPassword } = body
+
+      if (!email || !otp || !newPassword) {
+        return handleCORS(NextResponse.json(
+          { error: 'Email, OTP and new password are required' },
+          { status: 400 }
+        ))
+      }
+      if (String(newPassword).length < 6) {
+        return handleCORS(NextResponse.json(
+          { error: 'New password must be at least 6 characters' },
+          { status: 400 }
+        ))
+      }
+
+      const normalizedEmail = String(email).toLowerCase().trim()
+      const otpStr = String(otp).trim()
+
+      const record = await db.collection('password_resets').findOne({ email: normalizedEmail })
+      if (!record) {
+        return handleCORS(NextResponse.json(
+          { error: 'No reset request found. Please start again.' },
+          { status: 404 }
+        ))
+      }
+
+      if (new Date(record.expiresAt).getTime() < Date.now()) {
+        await db.collection('password_resets').deleteOne({ email: normalizedEmail })
+        return handleCORS(NextResponse.json(
+          { error: 'This code has expired. Please request a new one.' },
+          { status: 410 }
+        ))
+      }
+
+      if ((record.attempts || 0) >= 5) {
+        await db.collection('password_resets').deleteOne({ email: normalizedEmail })
+        return handleCORS(NextResponse.json(
+          { error: 'Too many incorrect attempts. Please start again.' },
+          { status: 429 }
+        ))
+      }
+
+      if (hashOtp(otpStr) !== record.otpHash) {
+        await db.collection('password_resets').updateOne(
+          { email: normalizedEmail },
+          { $inc: { attempts: 1 } }
+        )
+        const left = 5 - ((record.attempts || 0) + 1)
+        return handleCORS(NextResponse.json(
+          { error: `Incorrect code. ${left > 0 ? `${left} attempt${left === 1 ? '' : 's'} left.` : ''}`.trim() },
+          { status: 400 }
+        ))
+      }
+
+      const user = await db.collection('users').findOne({ email: normalizedEmail })
+      if (!user) {
+        await db.collection('password_resets').deleteOne({ email: normalizedEmail })
+        return handleCORS(NextResponse.json(
+          { error: 'Account not found. Please start again.' },
+          { status: 404 }
+        ))
+      }
+
+      await db.collection('users').updateOne(
+        { email: normalizedEmail },
+        { $set: { password: hashPassword(newPassword), updatedAt: new Date() } }
+      )
+      await db.collection('password_resets').deleteOne({ email: normalizedEmail })
+
+      return handleCORS(NextResponse.json({
+        message: 'Password updated. You can sign in with your new password.',
       }))
     }
 
