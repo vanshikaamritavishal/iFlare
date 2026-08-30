@@ -2,26 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { 
-  Radar, Bell, User, ArrowLeft, MapPin, Clock, 
-  Users, Calendar, Loader2, Plus, ChevronRight
-} from 'lucide-react'
-
-// Interest map for display
-const INTEREST_MAP = {
-  sports: { label: '🏃 Sports & Fitness', color: 'bg-green-500/20 text-green-400 border-green-500/30' },
-  music: { label: '🎵 Music & Concerts', color: 'bg-purple-500/20 text-purple-400 border-purple-500/30' },
-  food: { label: '🍕 Food & Dining', color: 'bg-orange-500/20 text-orange-400 border-orange-500/30' },
-  art: { label: '🎨 Art & Culture', color: 'bg-pink-500/20 text-pink-400 border-pink-500/30' },
-  tech: { label: '💻 Tech & Gaming', color: 'bg-blue-500/20 text-blue-400 border-blue-500/30' },
-  outdoor: { label: '🏕️ Outdoor', color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' },
-  nightlife: { label: '🌙 Nightlife', color: 'bg-violet-500/20 text-violet-400 border-violet-500/30' },
-  wellness: { label: '🧘 Wellness', color: 'bg-teal-500/20 text-teal-400 border-teal-500/30' },
-  learning: { label: '📚 Learning', color: 'bg-amber-500/20 text-amber-400 border-amber-500/30' },
-  social: { label: '☕ Social', color: 'bg-rose-500/20 text-rose-400 border-rose-500/30' },
-  pets: { label: '🐕 Pets', color: 'bg-lime-500/20 text-lime-400 border-lime-500/30' },
-  travel: { label: '✈️ Travel', color: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30' },
-}
+import { Radar, MapPin, Clock, Users, Loader2 } from 'lucide-react'
+import { INTEREST_MAP, interestLabel } from '@/lib/interests'
 
 export default function ActivityPage() {
   const router = useRouter()
@@ -90,33 +72,22 @@ export default function ActivityPage() {
 
   if (isLoading) {
     return (
-      <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+      <div className="flex min-h-[60vh] items-center justify-center">
         <Loader2 className="w-8 h-8 text-orange-500 animate-spin" />
-      </main>
+      </div>
     )
   }
 
   const filteredFlares = getFilteredFlares()
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 pb-24">
-      {/* Header */}
-      <header className="sticky top-0 z-40 bg-slate-950/80 backdrop-blur-lg border-b border-slate-800/50">
-        <div className="px-4 py-4">
-          <div className="flex items-center justify-between">
-            <button 
-              onClick={() => router.push('/flares')}
-              className="w-10 h-10 rounded-full bg-slate-800/50 flex items-center justify-center text-slate-400 hover:text-white"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </button>
-            <h1 className="text-lg font-bold">My Activity</h1>
-            <div className="w-10" />
-          </div>
-        </div>
+    <main>
+      {/* Nav lives in the app shell sidebar; this header is title + filters. */}
+      <header className="py-2">
+        <h1 className="text-2xl font-bold">My Activity</h1>
 
         {/* Filter Tabs */}
-        <div className="px-4 pb-3 flex gap-2">
+        <div className="pt-4 flex gap-2">
           <button
             onClick={() => setActiveTab('all')}
             className={`flex-1 py-2 rounded-xl text-sm font-medium transition-all ${
@@ -151,7 +122,7 @@ export default function ActivityPage() {
       </header>
 
       {/* Visibility helper */}
-      <div className="px-4 py-3 bg-orange-500/10 border-b border-orange-500/20">
+      <div className="mt-4 rounded-xl px-4 py-3 bg-orange-500/10 border border-orange-500/20">
         <p className="text-xs text-orange-300/90 flex items-start gap-1.5">
           <Clock className="w-3 h-3 mt-0.5 flex-shrink-0" />
           <span>
@@ -161,7 +132,7 @@ export default function ActivityPage() {
       </div>
 
       {/* Activity List */}
-      <div className="px-4 py-4">
+      <div className="py-4">
         {filteredFlares.length === 0 ? (
           <div className="text-center py-12">
             <Radar className="w-12 h-12 text-slate-600 mx-auto mb-3" />
@@ -252,7 +223,7 @@ export default function ActivityPage() {
                         ? 'bg-slate-800/60 border-slate-700 grayscale'
                         : 'bg-orange-500/10 border-orange-500/20'
                     }`}>
-                      {interestInfo.label?.split(' ')[0] || '🔥'}
+                      {interestInfo.emoji || '🔥'}
                     </div>
                     <div className="flex-1 min-w-0">
                       <h3 className={`font-semibold line-clamp-1 ${isEnded ? 'text-slate-400' : ''}`}>{flare.title}</h3>
@@ -262,7 +233,7 @@ export default function ActivityPage() {
                       <div className="flex flex-wrap gap-1 mb-2">
                         {flare.interests?.slice(0, 3).map(interest => (
                           <span key={interest} className="px-2 py-0.5 bg-slate-700/50 rounded text-xs text-slate-400">
-                            {INTEREST_MAP[interest]?.label?.split(' ')[0] || interest}
+                            {INTEREST_MAP[interest]?.emoji || interest}
                           </span>
                         ))}
                       </div>
@@ -295,30 +266,6 @@ export default function ActivityPage() {
           </div>
         )}
       </div>
-
-      {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-slate-950/90 backdrop-blur-lg border-t border-slate-800/50 px-6 py-3 z-40">
-        <div className="flex items-center justify-around">
-          <button 
-            onClick={() => router.push('/flares')}
-            className="flex flex-col items-center gap-1 text-slate-500"
-          >
-            <Radar className="w-6 h-6" />
-            <span className="text-xs">Flares</span>
-          </button>
-          <button className="flex flex-col items-center gap-1 text-orange-500">
-            <Bell className="w-6 h-6" />
-            <span className="text-xs">Activity</span>
-          </button>
-          <button 
-            onClick={() => router.push('/profile')}
-            className="flex flex-col items-center gap-1 text-slate-500"
-          >
-            <User className="w-6 h-6" />
-            <span className="text-xs">Profile</span>
-          </button>
-        </div>
-      </nav>
     </main>
   )
 }

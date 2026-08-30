@@ -53,7 +53,7 @@ function VerifyContent() {
   }, [searchParams])
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center px-6 py-12 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+    <main className="min-h-screen flex flex-col items-center justify-center px-6 py-12 bg-background">
       {/* Logo */}
       <div className="flex items-center gap-2 mb-12">
         <Radar className="w-8 h-8 text-orange-500" />
@@ -114,7 +114,7 @@ function VerifyContent() {
 export default function VerifyPage() {
   return (
     <Suspense fallback={
-      <main className="min-h-screen flex flex-col items-center justify-center px-6 py-12 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+      <main className="min-h-screen flex flex-col items-center justify-center px-6 py-12 bg-background">
         <Loader2 className="w-16 h-16 text-orange-500 animate-spin" />
       </main>
     }>

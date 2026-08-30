@@ -113,7 +113,7 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 px-6 py-8 flex flex-col">
+    <main className="min-h-screen bg-background px-6 py-8 flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <button
