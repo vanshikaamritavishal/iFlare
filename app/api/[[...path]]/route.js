@@ -4,6 +4,12 @@ import { NextResponse } from 'next/server'
 import { Resend } from 'resend'
 import crypto from 'crypto'
 import { resolveUniversity, getDomainFromEmail } from '@/lib/universities'
+import {
+  INTEREST_MAP,
+  INTEREST_NAME_MAX_LENGTH,
+  DEFAULT_INTEREST_EMOJI,
+  slugifyInterest
+} from '@/lib/interests'
 
 // MongoDB connection
 let client
@@ -72,6 +78,12 @@ async function ensureMigrated(db) {
     // Password reset OTPs — same TTL + unique-per-email pattern as signup OTPs.
     await db.collection('password_resets').createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 })
     await db.collection('password_resets').createIndex({ email: 1 }, { unique: true })
+
+    // User-created interests are scoped per university, the same way flares
+    // are: uniqueness is on {id, emailDomain}, so two campuses can each have
+    // their own "board-games" without seeing each other's.
+    await db.collection('interests').createIndex({ id: 1, emailDomain: 1 }, { unique: true })
+    await db.collection('interests').createIndex({ emailDomain: 1, name: 1 })
   } catch (e) {
     console.error('Migration warning (non-fatal):', e)
   } finally {
@@ -104,8 +116,31 @@ async function assertFlareChatAccess(db, flareId, userId) {
   return { ok: true, flare, user }
 }
 
+// Helper: resolve the university (email) domain a request acts within.
+// Custom interests are scoped by that domain exactly as flares are by
+// hostEmailDomain, so both interest routes need the same lookup.
+async function resolveUserDomain(db, userId) {
+  if (!userId) return { ok: false, status: 400, error: 'User ID is required' }
+
+  const user = await db.collection('users').findOne(
+    { id: userId },
+    { projection: { id: 1, email: 1, emailDomain: 1 } }
+  )
+  if (!user) return { ok: false, status: 404, error: 'User not found' }
+
+  const domain = user.emailDomain || getDomainFromEmail(user.email)
+  if (!domain) {
+    return { ok: false, status: 403, error: 'No university is linked to this account' }
+  }
+  return { ok: true, user, domain }
+}
+
 // Initialize Resend
 const resend = new Resend(process.env.RESEND_API_KEY)
+
+// Upper bound for the optional profile bio, enforced server-side so the
+// client can't grow a user document without limit.
+const BIO_MAX_LENGTH = 300
 
 // Helper function to handle CORS
 function handleCORS(response) {
@@ -350,7 +385,7 @@ async function handleRoute(request, { params }) {
       const body = await request.json().catch(() => ({}))
       const { name, email, password, interests } = body
 
-      if (!name || !email || !password || !interests) {
+      if (!name || !email || !password) {
         return handleCORS(NextResponse.json(
           { error: 'All fields are required' },
           { status: 400 }
@@ -362,9 +397,14 @@ async function handleRoute(request, { params }) {
           { status: 400 }
         ))
       }
-      if (!Array.isArray(interests) || interests.length < 3) {
+      // Interests are optional here and default to []. The signup wizard now
+      // collects them *after* the OTP — on the personalisation step, which
+      // saves them through PUT /user/settings and is where the "at least 3"
+      // rule is enforced. Requiring them at /start would force interests back
+      // in front of verification and make the 4-step order impossible.
+      if (interests !== undefined && interests !== null && !Array.isArray(interests)) {
         return handleCORS(NextResponse.json(
-          { error: 'Please select at least 3 interests' },
+          { error: 'Interests must be a list' },
           { status: 400 }
         ))
       }
@@ -409,7 +449,7 @@ async function handleRoute(request, { params }) {
       const pendingSignup = {
         name: name.trim(),
         passwordHash: hashPassword(password),
-        interests,
+        interests: Array.isArray(interests) ? interests : [],
         emailDomain: uni.domain,
         university: uni.name,
       }
@@ -521,6 +561,8 @@ async function handleRoute(request, { params }) {
         email: normalizedEmail,
         password: ps.passwordHash,
         interests: ps.interests || [],
+        // Filled in by the optional personalisation step after verification.
+        bio: '',
         emailDomain: ps.emailDomain,
         university: ps.university,
         isVerified: true,
@@ -539,6 +581,7 @@ async function handleRoute(request, { params }) {
           name: user.name,
           email: user.email,
           interests: user.interests,
+          bio: user.bio,
           university: user.university,
           emailDomain: user.emailDomain,
         },
@@ -879,6 +922,7 @@ async function handleRoute(request, { params }) {
           name: user.name,
           email: user.email,
           interests: user.interests,
+          bio: user.bio || '',
           university: user.university || null,
           emailDomain: user.emailDomain || getDomainFromEmail(user.email)
         },
@@ -970,6 +1014,7 @@ async function handleRoute(request, { params }) {
             name: user.name,
             email: user.email,
             interests: user.interests,
+            bio: user.bio || '',
             university: user.university || null,
             emailDomain: user.emailDomain || getDomainFromEmail(user.email)
           }
@@ -1081,7 +1126,7 @@ async function handleRoute(request, { params }) {
     // Update user settings (interests + visibility)
     if (route === '/user/settings' && method === 'PUT') {
       const body = await request.json()
-      const { userId, interests, visibilityMode } = body
+      const { userId, interests, visibilityMode, bio } = body
 
       if (!userId) {
         return handleCORS(NextResponse.json(
@@ -1097,9 +1142,28 @@ async function handleRoute(request, { params }) {
         ))
       }
 
+      // bio is optional everywhere: it's collected on a skippable
+      // personalisation step, so an empty string is a legitimate value
+      // (the user clearing it) rather than "field absent".
+      if (bio !== undefined) {
+        if (typeof bio !== 'string') {
+          return handleCORS(NextResponse.json(
+            { error: 'Bio must be text' },
+            { status: 400 }
+          ))
+        }
+        if (bio.length > BIO_MAX_LENGTH) {
+          return handleCORS(NextResponse.json(
+            { error: `Bio must be ${BIO_MAX_LENGTH} characters or fewer` },
+            { status: 400 }
+          ))
+        }
+      }
+
       const updateFields = { updatedAt: new Date() }
       if (interests) updateFields.interests = interests
       if (visibilityMode) updateFields.visibilityMode = visibilityMode
+      if (bio !== undefined) updateFields.bio = bio.trim()
 
       const result = await db.collection('users').updateOne(
         { id: userId },
@@ -1116,7 +1180,123 @@ async function handleRoute(request, { params }) {
       return handleCORS(NextResponse.json({
         message: 'Settings updated successfully',
         interests,
-        visibilityMode
+        visibilityMode,
+        bio: updateFields.bio
+      }))
+    }
+
+    // ==================== INTEREST ROUTES ====================
+
+    // Custom interests for the caller's university.
+    //
+    // Only the extras are returned, never the built-in list: that list ships
+    // in lib/interests.js and is identical on every campus, so sending it over
+    // the wire would just be a second copy that can drift. The client merges
+    // the two (mergeInterests).
+    if (route === '/interests' && method === 'GET') {
+      const url = new URL(request.url)
+      const scope = await resolveUserDomain(db, url.searchParams.get('userId'))
+      if (!scope.ok) {
+        return handleCORS(NextResponse.json(
+          { error: scope.error },
+          { status: scope.status }
+        ))
+      }
+
+      const docs = await db.collection('interests')
+        .find({ emailDomain: scope.domain })
+        .sort({ name: 1 })
+        .limit(200)
+        .toArray()
+
+      // createdBy/emailDomain stay server-side — the client only needs enough
+      // to render a chip.
+      return handleCORS(NextResponse.json({
+        interests: docs.map(d => ({ id: d.id, name: d.name, emoji: d.emoji }))
+      }))
+    }
+
+    // Create (or re-use) a custom interest for the caller's university.
+    if (route === '/interests' && method === 'POST') {
+      const body = await request.json()
+      const { userId, name, emoji } = body
+
+      if (!userId || !name) {
+        return handleCORS(NextResponse.json(
+          { error: 'User ID and interest name are required' },
+          { status: 400 }
+        ))
+      }
+
+      const cleanName = String(name).trim().replace(/\s+/g, ' ')
+      if (cleanName.length < 2) {
+        return handleCORS(NextResponse.json(
+          { error: 'That interest name is too short' },
+          { status: 400 }
+        ))
+      }
+      if (cleanName.length > INTEREST_NAME_MAX_LENGTH) {
+        return handleCORS(NextResponse.json(
+          { error: `Interest names must be ${INTEREST_NAME_MAX_LENGTH} characters or fewer` },
+          { status: 400 }
+        ))
+      }
+
+      const id = slugifyInterest(cleanName)
+      if (!id) {
+        return handleCORS(NextResponse.json(
+          { error: 'Interest names need at least one letter or number' },
+          { status: 400 }
+        ))
+      }
+
+      // A built-in id always wins, so no campus can shadow a shared interest
+      // with a local one — the id is already persisted on existing documents.
+      const builtIn = INTEREST_MAP[id]
+      if (builtIn) {
+        return handleCORS(NextResponse.json({
+          interest: { id: builtIn.id, name: builtIn.name, emoji: builtIn.emoji }
+        }))
+      }
+
+      if (emoji !== undefined && (typeof emoji !== 'string' || emoji.length > 8)) {
+        return handleCORS(NextResponse.json(
+          { error: 'Invalid emoji' },
+          { status: 400 }
+        ))
+      }
+
+      const scope = await resolveUserDomain(db, userId)
+      if (!scope.ok) {
+        return handleCORS(NextResponse.json(
+          { error: scope.error },
+          { status: scope.status }
+        ))
+      }
+
+      // Upsert on {id, emailDomain}: two students typing "Board Games" and
+      // "board games" must land on one interest. $setOnInsert keeps the first
+      // creator's wording rather than letting later writers rename it under
+      // everyone who already selected it.
+      await db.collection('interests').updateOne(
+        { id, emailDomain: scope.domain },
+        {
+          $setOnInsert: {
+            id,
+            name: cleanName,
+            emoji: emoji || DEFAULT_INTEREST_EMOJI,
+            emailDomain: scope.domain,
+            createdBy: userId,
+            createdAt: new Date()
+          }
+        },
+        { upsert: true }
+      )
+
+      const saved = await db.collection('interests').findOne({ id, emailDomain: scope.domain })
+
+      return handleCORS(NextResponse.json({
+        interest: { id: saved.id, name: saved.name, emoji: saved.emoji }
       }))
     }
 
